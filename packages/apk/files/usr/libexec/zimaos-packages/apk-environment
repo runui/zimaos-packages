@@ -1,0 +1,195 @@
+#!/bin/sh
+set -eu
+
+# Overrides support disposable namespace tests; normal installations use these
+# fixed paths. The merged root is outside /DATA so binding host data into a
+# command namespace cannot recursively bind the environment into itself.
+state=${APK_ENV_STATE:-/DATA/.zimaos-packages/apk}
+runtime=${APK_ENV_RUN:-/run/zimaos-packages/apk}
+base=${APK_ENV_BASE:-/usr/share/zimaos-packages/apk/base}
+bindir=${APK_ENV_BIN:-/DATA/.local/bin}
+launcher=${APK_ENV_LAUNCH:-/usr/libexec/zimaos-packages/apk-launch}
+version_file=${APK_ENV_VERSION:-/usr/share/zimaos-packages/apk/runtime-version}
+root=$runtime/root
+lower=$runtime/lower
+
+fail() { echo "apk: $*" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || fail 'this Alpine environment requires root (sudo apk ...)'
+
+# A separate mount namespace is used for every invocation. Only the persistent
+# OverlayFS mount itself is shared; /dev, /proc, /DATA and the caller's working
+# directory never become global submounts beneath the environment.
+if [ "${1:-}" = namespace ]; then
+    [ -n "${APK_ENV_PARENT_MOUNT_NS:-}" ] && \
+        [ "$(readlink /proc/self/ns/mnt)" != "$APK_ENV_PARENT_MOUNT_NS" ] || \
+        fail 'command mounts require a private mount namespace'
+    shift
+    operation=$1
+    shift
+    for directory in dev proc sys DATA media tmp; do
+        if [ -d "/$directory" ]; then
+            mount --rbind "/$directory" "$root/$directory"
+            mount --make-rslave "$root/$directory"
+        fi
+    done
+    for directory in root home; do
+        [ ! -d "/$directory" ] || mount --bind "/$directory" "$root/$directory"
+    done
+    if [ "$operation" = native ]; then
+        # Explicit --root and standalone package tools retain host path
+        # semantics, using the same official Alpine binary and libraries.
+        exec "$root/lib/ld-musl-x86_64.so.1" --library-path "$root/lib:$root/usr/lib" "$root/sbin/apk" "$@"
+    fi
+    if [ "$operation" = package ]; then set -- /sbin/apk "$@"; fi
+    # Relative arguments resolve against the real host working directory, while
+    # Alpine executables still see their own loader and libraries at /lib.
+    mount --bind "$PWD" "$root/work"
+    exec chroot "$root" /bin/sh -c 'cd /work; exec "$@"' sh "$@"
+fi
+
+mkdir -p "$runtime"
+# Hold the lock throughout package transactions and launched programs. An
+# upgrade/stop must not detach a root while managed clients are still using it.
+exec 9>"$runtime/lock"
+flock -x 9
+APK_ENV_PARENT_MOUNT_NS=$(readlink /proc/self/ns/mnt)
+export APK_ENV_PARENT_MOUNT_NS
+
+stop_environment() {
+    if mountpoint -q "$root"; then
+        [ "$(findmnt -n -o FSTYPE --mountpoint "$root")" = overlay ] || fail "unexpected mount at $root"
+        umount "$root"
+    fi
+    if mountpoint -q "$lower"; then umount "$lower"; fi
+    rm -f "$runtime/version"
+}
+
+initialize() {
+    [ -f "$base/etc/os-release" ] || fail "official Alpine base is missing: $base"
+    grep -Eq '^ID="?alpine"?$' "$base/etc/os-release" || fail 'runtime base must be Alpine'
+    [ -f "$version_file" ] || fail "runtime version is missing: $version_file"
+    if mountpoint -q "$root"; then
+        [ "$(findmnt -n -o FSTYPE --mountpoint "$root")" = overlay ] || fail "unexpected mount at $root"
+        if ! cmp -s "$version_file" "$runtime/version"; then stop_environment; fi
+    fi
+    if ! mountpoint -q "$root"; then
+        mkdir -p "$state/upper" "$state/work" "$root" "$lower"
+        # A libc/distribution change needs a fresh root, not a new repository
+        # line on top of the old package database and its whiteouts.
+        if [ -e "$state/distribution" ]; then
+            [ "$(cat "$state/distribution")" = alpine-edge ] || fail 'persistent state belongs to another distribution'
+        elif [ -n "$(ls -A "$state/upper")" ]; then
+            fail 'refusing to reuse an unmarked nonempty upper directory'
+        else
+            printf 'alpine-edge\n' > "$state/distribution"
+        fi
+        # Pin the lower to a read-only bind mount: an unrelated sysext refresh
+        # may replace /usr, but cannot remove the running Alpine lower tree.
+        if ! mountpoint -q "$lower"; then
+            mount --bind "$base" "$lower"
+            mount -o remount,bind,ro "$lower"
+        fi
+        if ! mount -t overlay overlay -o "lowerdir=$lower,upperdir=$state/upper,workdir=$state/work" "$root"; then
+            umount "$lower"
+            fail 'could not mount the persistent Alpine OverlayFS'
+        fi
+        cp "$version_file" "$runtime/version"
+    fi
+    # The official minirootfs has keys, world, base database and CA
+    # bundle. Only the resolver must follow the host's current network config.
+    if ! cmp -s /etc/resolv.conf "$root/etc/resolv.conf"; then
+        cp /etc/resolv.conf "$root/etc/resolv.conf.apk-tmp"
+        mv -f "$root/etc/resolv.conf.apk-tmp" "$root/etc/resolv.conf"
+    fi
+}
+
+has_command() {
+    for directory in usr/bin bin usr/sbin sbin; do
+        [ ! -x "$1/$directory/$2" ] || return 0
+    done
+    return 1
+}
+
+sync_launchers() {
+    mkdir -p "$bindir"
+    for entry in "$bindir"/*; do
+        if [ -L "$entry" ] && [ "$(readlink "$entry")" = "$launcher" ]; then
+            if ! has_command "$root" "${entry##*/}"; then rm "$entry"; fi
+        fi
+    done
+    for directory in usr/bin bin usr/sbin sbin; do
+        for entry in "$root/$directory"/*; do
+            [ -x "$entry" ] && [ ! -d "$entry" ] || continue
+            name=${entry##*/}
+            case "$name" in ''|*[!a-zA-Z0-9_.+-]*) continue ;; esac
+            # Never export Alpine's base shell/coreutils over host commands.
+            has_command "$lower" "$name" && continue
+            destination=$bindir/$name
+            if [ -L "$destination" ] && [ "$(readlink "$destination")" = "$launcher" ]; then continue; fi
+            # A skipped launcher is normal: preserve existing commands
+            # silently so package operations keep upstream apk's output.
+            if [ -e "$destination" ] || [ -L "$destination" ]; then
+                continue
+            fi
+            existing=$(command -v "$name" || :)
+            if [ -n "$existing" ]; then
+                continue
+            fi
+            ln -s "$launcher" "$destination"
+        done
+    done
+}
+
+enter() {
+    # BusyBox from the pinned official lower already provides unshare. Loading
+    # it with its own musl removes both a custom C helper and an Entware dependency.
+    exec "$lower/lib/ld-musl-x86_64.so.1" --library-path "$lower/lib:$lower/usr/lib" \
+        "$lower/bin/busybox" unshare --mount --propagation private "$0" namespace "$@"
+}
+
+operation=${1:-init}
+[ "$#" -eq 0 ] || shift
+case "$operation" in
+    stop)
+        stop_environment
+        # Only remove links owned by this extension; package data survives.
+        for entry in "$bindir"/*; do
+            if [ -L "$entry" ] && [ "$(readlink "$entry")" = "$launcher" ]; then rm "$entry"; fi
+        done
+        ;;
+    init)
+        initialize
+        sync_launchers
+        ;;
+    status)
+        initialize
+        printf 'Base: %s\nUpper: %s\nWork: %s\nRoot: %s\nCommands: %s\n' "$base" "$state/upper" "$state/work" "$root" "$bindir"
+        cat "$root/etc/os-release" "$root/etc/apk/repositories"
+        findmnt --mountpoint "$root"
+        ;;
+    exec)
+        initialize
+        [ "${1:-}" != -- ] || shift
+        [ "$#" -gt 0 ] || set -- /bin/sh
+        flock -s 9
+        enter exec "$@"
+        ;;
+    native)
+        initialize
+        flock -s 9
+        enter native "$@"
+        ;;
+    package)
+        case "${1:-}" in
+            exec) shift; [ "${1:-}" != -- ] || shift; initialize; flock -s 9; enter exec "$@" ;;
+            shell) shift; initialize; flock -s 9; enter exec /bin/sh "$@" ;;
+            environment) exec "$0" status ;;
+        esac
+        initialize
+        status=0
+        ( enter package "$@" ) || status=$?
+        sync_launchers
+        exit "$status"
+        ;;
+    *) fail "unknown environment operation: $operation" ;;
+esac

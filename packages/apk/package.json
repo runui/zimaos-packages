@@ -1,0 +1,54 @@
+{
+  "name": "apk",
+  "description": "Official Alpine package tools with a persistent userspace environment",
+  "version": "20260805",
+  "release": 3,
+  "module_version": "v2026.8.5-zimaos.3",
+  "architecture": "x86_64",
+  "targets": [
+    "zimaos-amd64"
+  ],
+  "license": "GPL-2.0-only",
+  "homepage": "https://gitlab.alpinelinux.org/alpine/apk-tools",
+  "source": {
+    "filename": "alpine-minirootfs-20260805-x86_64.tar.gz",
+    "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz",
+    "sha512": "1f9e4665146396bf5c9d17e73708256f7eac1de67adab2240e95ee39281317c1e05d20738e778fbbbd4abdccd22be3ed203b91577082101288beeb5c36804f5f",
+    "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/latest-releases.yaml"
+  },
+  "source_date_epoch": 1793740800,
+  "services": [
+    {
+      "name": "apk-environment.service"
+    }
+  ],
+  "runtime": {
+    "bootstrap_apk_version": "3.0.7-r0",
+    "repositories": [
+      "https://dl-cdn.alpinelinux.org/alpine/edge/main",
+      "https://dl-cdn.alpinelinux.org/alpine/edge/community"
+    ]
+  },
+  "build": {
+    "command": [
+      "python3",
+      "build.py"
+    ],
+    "inputs": [
+      "build.py"
+    ],
+    "artifacts": [
+      "runtime-packages.txt"
+    ]
+  },
+  "tests": {
+    "smoke": [
+      "python3",
+      "tests/smoke.py"
+    ],
+    "integration": [
+      "python3",
+      "tests/integration.py"
+    ]
+  }
+}

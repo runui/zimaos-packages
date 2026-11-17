@@ -1,0 +1,6 @@
+option('packages', type: 'array', value: [], description: 'Package names to build; use all for the complete catalog')
+option('target', type: 'string', value: '', description: 'Target definition from targets/')
+option('os_version', type: 'string', value: '', description: 'Exact VERSION_ID of the destination system')
+option('source_cache', type: 'string', value: '', description: 'Optional absolute directory for verified source archives')
+option('image_threads', type: 'integer', value: 2, min: 1, description: 'SquashFS compression workers per image')
+option('integration_tests', type: 'boolean', value: false, description: 'Register privileged tests using private mount namespaces')

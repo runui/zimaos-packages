@@ -1,0 +1,15 @@
+[Unit]
+Description=Persistent Alpine package environment
+After=systemd-sysext.service local-fs.target
+RequiresMountsFor=/DATA
+ConditionPathExists=/usr/share/zimaos-packages/apk/base/etc/os-release
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/zimaos-packages/apk-environment init
+ExecStop=/usr/libexec/zimaos-packages/apk-environment stop
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,75 @@
+name: Build system extensions
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      os_version:
+        description: Exact VERSION_ID of the destination ZimaOS system
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.catalog.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install shared test tools
+        run: sudo apt-get update && sudo apt-get install -y meson ninja-build squashfs-tools
+      - name: Check shared tooling and the build graph
+        run: |
+          meson setup build
+          meson test -C build --suite unit --print-errorlogs
+      - name: Discover package targets
+        id: catalog
+        run: |
+          matrix=$(python3 tools/configure.py list --json)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  extensions:
+    needs: catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.catalog.outputs.matrix) }}
+    env:
+      PACKAGE: ${{ matrix.package }}
+      TARGET: ${{ matrix.target }}
+      OS_VERSION: ${{ inputs.os_version || '0.0.0' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install build and test tools
+        run: sudo apt-get update && sudo apt-get install -y meson ninja-build squashfs-tools binutils openssh-client util-linux
+      - name: Configure package build
+        run: meson setup build -Dpackages="$PACKAGE" -Dtarget="$TARGET" -Dos_version="$OS_VERSION" -Dintegration_tests=true
+      - name: Build extension
+        run: meson compile -C build
+      - name: Verify unchanged builds do no work
+        run: ninja -C build -n | tee build/incremental.txt && grep -q 'no work to do' build/incremental.txt
+      - name: Run package smoke tests
+        run: meson test -C build --suite smoke --print-errorlogs
+      - name: Run available integration suites in private namespaces
+        run: |
+          if python3 -c 'import json, os; p = json.load(open("packages/" + os.environ["PACKAGE"] + "/package.json")); raise SystemExit("integration" not in p.get("tests", {}))'; then
+            sudo meson test -C build --suite integration --print-errorlogs
+          fi
+      - name: Create distribution bundle
+        if: github.event_name == 'workflow_dispatch'
+        run: meson compile -C build bundles
+      - name: Retain manually requested distribution artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ matrix.package }}-${{ matrix.target }}-${{ inputs.os_version }}
+          path: build/*.bundle.tar.gz
+          if-no-files-found: error

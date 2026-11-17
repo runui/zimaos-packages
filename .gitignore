@@ -1,0 +1,12 @@
+/build/
+__pycache__/
+*.py[cod]
+*.raw
+*.squashfs
+*.apk
+*.tar
+*.tar.*
+*.zip
+*.log
+
+AGENTS.md

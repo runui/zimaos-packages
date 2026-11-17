@@ -1,0 +1,17 @@
+#!/bin/sh
+helper=${APK_ENV_HELPER:-/usr/libexec/zimaos-packages/apk-environment}
+# Program arguments belong to exec/shell, never to the outer apk entry point.
+case "${1:-}" in
+    exec|shell|environment) exec "$helper" package "$@" ;;
+esac
+# Explicit alternate roots keep host path semantics. All normal commands,
+# including help/version and upgrades, use the official apk inside Alpine.
+for argument do
+    case "$argument" in
+        --root|--root=*|-p|-p?*) exec "$helper" native "$@" ;;
+    esac
+done
+case "${1:-}" in
+    mkpkg|mkndx|adbdump|adbsign|adbgen|version|verify) exec "$helper" native "$@" ;;
+esac
+exec "$helper" package "$@"
