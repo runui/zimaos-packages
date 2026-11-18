@@ -24,7 +24,7 @@ def main():
     share = Path(os.environ['DESTDIR']) / 'usr/share/zimaos-packages' / package['name']
     base = share / 'base'
     extract_archive(Path(os.environ['ZPKG_SOURCE_ARCHIVE']), base, exclude_trees=('dev', 'proc', 'sys', 'run'))
-    for name in ('DATA', 'media', 'work', 'proc', 'sys', 'dev', 'tmp', 'root', 'home'):
+    for name in ('DATA', 'media', 'work', 'proc', 'sys', 'dev', 'run', 'tmp', 'root', 'home'):
         (base / name).mkdir(exist_ok=True)
     (base / 'etc/apk/repositories').write_text('\n'.join(runtime['repositories']) + '\n')
     inventory = installed_packages(base)

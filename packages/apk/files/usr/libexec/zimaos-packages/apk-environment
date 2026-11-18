@@ -22,8 +22,8 @@ musl_loader() {
 [ "$(id -u)" -eq 0 ] || fail 'this Alpine environment requires root (sudo apk ...)'
 
 # A separate mount namespace is used for every invocation. Only the persistent
-# OverlayFS mount itself is shared; /dev, /proc, /DATA and the caller's working
-# directory never become global submounts beneath the environment.
+# OverlayFS mount itself is shared; host runtime/data mounts and the caller's
+# working directory never become global submounts beneath the environment.
 if [ "${1:-}" = namespace ]; then
     [ -n "${APK_ENV_PARENT_MOUNT_NS:-}" ] && \
         [ "$(readlink /proc/self/ns/mnt)" != "$APK_ENV_PARENT_MOUNT_NS" ] || \
@@ -31,14 +31,15 @@ if [ "${1:-}" = namespace ]; then
     shift
     operation=$1
     shift
-    for directory in dev proc sys DATA media tmp; do
+    # Recursive host binds must skip our own mounts when their parent (normally
+    # /run) is shared with Alpine. These flags apply only in this namespace.
+    mount --make-unbindable "$root"
+    mount --make-unbindable "$lower"
+    for directory in dev proc sys run DATA media tmp root home; do
         if [ -d "/$directory" ]; then
             mount --rbind "/$directory" "$root/$directory"
             mount --make-rslave "$root/$directory"
         fi
-    done
-    for directory in root home; do
-        [ ! -d "/$directory" ] || mount --bind "/$directory" "$root/$directory"
     done
     if [ "$operation" = native ]; then
         # Explicit --root and standalone package tools retain host path
@@ -46,10 +47,17 @@ if [ "${1:-}" = namespace ]; then
         exec "$root/lib/$(musl_loader)" --library-path "$root/lib:$root/usr/lib" "$root/sbin/apk" "$@"
     fi
     if [ "$operation" = package ]; then set -- /sbin/apk "$@"; fi
-    # Relative arguments resolve against the real host working directory, while
-    # Alpine executables still see their own loader and libraries at /lib.
-    mount --bind "$PWD" "$root/work"
-    exec chroot "$root" /bin/sh -c 'cd /work; exec "$@"' sh "$@"
+    # Keep host data paths intact for clients that send absolute paths to host
+    # services. Other working directories use /work without hiding Alpine's
+    # own /usr, /etc or libraries.
+    host_directory=$(pwd -P)
+    working_directory=/work
+    case "$host_directory" in
+        /DATA|/DATA/*|/media|/media/*|/tmp|/tmp/*|/root|/root/*|/home|/home/*)
+            working_directory=$host_directory ;;
+        *) mount --bind "$host_directory" "$root/work" ;;
+    esac
+    exec chroot "$root" /bin/sh -c 'cd "$1" || exit; shift; exec "$@"' sh "$working_directory" "$@"
 fi
 
 mkdir -p "$runtime"
