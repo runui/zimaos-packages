@@ -7,11 +7,11 @@
     "preUninstall": [],
     "preUpdate": []
   },
-  "name": "apk",
+  "name": "oci-mirror-proxy",
   "services": [
     {
-      "name": "apk-environment.service"
+      "name": "zimaos-oci-mirror-proxy.service"
     }
   ],
-  "version": "v2026.8.5-zimaos.5"
+  "version": "v1.1.0-zimaos.1"
 }

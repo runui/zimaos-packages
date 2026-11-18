@@ -1,0 +1,30 @@
+oci-mirror-proxy 1.1.0
+Copyright (c) 2026 Bin <bin@pbk6.cn>
+License: MIT
+Upstream: https://github.com/runui/oci-mirror-proxy
+Source revision: dc87e77c08e01ceaf662720782c4686d184bb483
+Source: https://github.com/runui/oci-mirror-proxy/tree/dc87e77c08e01ceaf662720782c4686d184bb483
+
+This module redistributes the unmodified official Linux release binary. The
+release archive is checked against upstream SHA256SUMS when updating this recipe
+and pinned by SHA-512 for every build. It does not run the upstream installer:
+the system extension owns /usr and zpkg manages binary and service updates.
+Runtime configuration, subscription updates, Docker configuration merging,
+backups, activation, and removal use the upstream CLI.
+
+The Linux binary includes the Go 1.26.8 runtime (BSD-3-Clause) and these modules:
+
+github.com/pelletier/go-toml/v2 v2.2.4 (MIT)
+github.com/spf13/cobra v1.10.2 (Apache-2.0)
+github.com/spf13/pflag v1.0.9 (BSD-3-Clause)
+gopkg.in/yaml.v3 v3.0.1 (MIT and Apache-2.0)
+
+Their upstream license texts are included under
+/usr/share/licenses/oci-mirror-proxy/third-party/, in the go, go-toml, cobra,
+pflag, and yaml component directories. The main project's license is LICENSE
+in /usr/share/licenses/oci-mirror-proxy/. Module versions and Go module checksums
+are recorded in the upstream binary's Go build information and upstream go.sum.
+The Go source is available at https://github.com/golang/go/tree/go1.26.8.
+The package README documents persistence, automatic Docker integration,
+recovery, and removal. Package integration code is covered by the repository
+MIT license, included as /usr/share/licenses/oci-mirror-proxy/packaging/LICENSE.

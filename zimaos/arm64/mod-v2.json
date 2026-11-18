@@ -2,7 +2,13 @@
   {
     "name": "apk",
     "title": "apk",
-    "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.5/68168a42a4d0d6160766d3f898825d696361313314056d9495a22ec1aaf3926e/apk.raw",
-    "version": "v2026.8.5-zimaos.5"
+    "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.6/d6cedba3527ed5d9b140b11bf2e03812e37c7ccdbc9659a5964cefe56511c5ab/apk.raw",
+    "version": "v2026.8.5-zimaos.6"
+  },
+  {
+    "name": "oci-mirror-proxy",
+    "title": "oci-mirror-proxy",
+    "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/oci-mirror-proxy/v1.1.0-zimaos.1/7ebe3b1deb0732fa9eaac7a4e1831b3c3e8b32e5ee2c1774227517885948e301/oci-mirror-proxy.raw",
+    "version": "v1.1.0-zimaos.1"
   }
 ]
