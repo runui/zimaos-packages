@@ -1,0 +1,17 @@
+{
+  "hook": {
+    "postInstall": [],
+    "postUninstall": [],
+    "postUpdate": [],
+    "preInstall": [],
+    "preUninstall": [],
+    "preUpdate": []
+  },
+  "name": "apk",
+  "services": [
+    {
+      "name": "apk-environment.service"
+    }
+  ],
+  "version": "v2026.8.5-zimaos.4"
+}

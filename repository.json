@@ -1,0 +1,37 @@
+{
+  "base_url": "https://runui.github.io/zimaos-packages",
+  "packages": [
+    {
+      "architecture": "x86_64",
+      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.bundle.tar.gz",
+      "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.SHA256SUMS",
+      "name": "apk",
+      "os_id": "zimaos",
+      "sha256": "99a4758e7fb9a6d43543cc2c1c8c1c87ca9f6571cb0dc9c4662b4daa508b3b7a",
+      "size_bytes": 3743744,
+      "target": "zimaos-amd64",
+      "title": "apk",
+      "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.raw",
+      "version": "v2026.8.5-zimaos.4"
+    },
+    {
+      "architecture": "aarch64",
+      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.bundle.tar.gz",
+      "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/mod-v2.json",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.SHA256SUMS",
+      "name": "apk",
+      "os_id": "zimaos",
+      "sha256": "04b3b15f7e97bdc7f82c947ae39c2dd135b9cf586061220cdbc3cc23cd82d9e3",
+      "size_bytes": 4067328,
+      "target": "zimaos-arm64",
+      "title": "apk",
+      "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.raw",
+      "version": "v2026.8.5-zimaos.4"
+    }
+  ],
+  "targets": [
+    "zimaos-amd64",
+    "zimaos-arm64"
+  ]
+}

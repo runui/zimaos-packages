@@ -1,0 +1,31 @@
+This package includes prebuilt software from the official Alpine Linux
+minirootfs. Its components retain their upstream copyright and license terms.
+The root filesystem archive is a binary distribution, not corresponding source.
+
+Primary components include:
+
+- apk-tools and libapk: GPL-2.0-only
+  https://gitlab.alpinelinux.org/alpine/apk-tools
+- BusyBox: GPL-2.0-only
+  https://busybox.net/
+- musl: MIT
+  https://musl.libc.org/
+- OpenSSL: Apache-2.0
+  https://openssl-library.org/
+- zlib: Zlib
+  https://zlib.net/
+
+The manifest pins each architecture's official archive URL and SHA-512. The
+build output includes runtime-packages.txt; the runtime database at
+/lib/apk/db/installed also records
+component versions, licenses, origins, and aports commit identifiers.
+
+Alpine package recipes and source references:
+https://gitlab.alpinelinux.org/alpine/aports
+https://pkgs.alpinelinux.org/packages
+https://distfiles.alpinelinux.org/distfiles/
+
+The apk-tools GPL text is included in the image under
+/usr/share/licenses/apk-tools/LICENSE. Distributors must include all required
+component notices and provide corresponding source or another arrangement
+permitted by the applicable licenses.
