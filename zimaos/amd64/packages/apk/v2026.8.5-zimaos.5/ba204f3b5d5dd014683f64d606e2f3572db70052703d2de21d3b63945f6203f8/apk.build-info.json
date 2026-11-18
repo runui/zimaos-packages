@@ -1,5 +1,5 @@
 {
-  "architecture": "aarch64",
+  "architecture": "x86_64",
   "details": {
     "bootstrap_apk_version": "3.0.7-r0",
     "compiled_locally": false,
@@ -27,7 +27,7 @@
     }
   },
   "manifest": {
-    "architecture": "aarch64",
+    "architecture": "x86_64",
     "build": {
       "artifacts": [
         "runtime-packages.txt"
@@ -43,9 +43,9 @@
     "description": "Official Alpine package tools with a persistent userspace environment",
     "homepage": "https://gitlab.alpinelinux.org/alpine/apk-tools",
     "license": "GPL-2.0-only",
-    "module_version": "v2026.8.5-zimaos.4",
+    "module_version": "v2026.8.5-zimaos.5",
     "name": "apk",
-    "release": 4,
+    "release": 5,
     "runtime": {
       "bootstrap_apk_version": "3.0.7-r0",
       "repositories": [
@@ -59,10 +59,10 @@
       }
     ],
     "source": {
-      "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz.sha512",
-      "filename": "alpine-minirootfs-20260805-aarch64.tar.gz",
-      "sha512": "5516723e8f12ff99297b62ac66545775beed3ce7b5cecdb1d4df252cbd694fb6eb2aa669465ec0e042e947b74308d41a16cc381d44238e036398e46ec8be9f52",
-      "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz"
+      "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/latest-releases.yaml",
+      "filename": "alpine-minirootfs-20260805-x86_64.tar.gz",
+      "sha512": "1f9e4665146396bf5c9d17e73708256f7eac1de67adab2240e95ee39281317c1e05d20738e778fbbbd4abdccd22be3ed203b91577082101288beeb5c36804f5f",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz"
     },
     "source_date_epoch": 1793740800,
     "targets": [
@@ -81,7 +81,7 @@
     },
     "version": "20260805"
   },
-  "module_version": "v2026.8.5-zimaos.4",
+  "module_version": "v2026.8.5-zimaos.5",
   "os_id": "zimaos",
   "package": "apk",
   "recipe": {
@@ -89,11 +89,11 @@
     "meson.build": "27eec1ec5c809daccc71c80ba4eb15a14e0abd670da38f4fb50d4639a59f6803",
     "meson.options": "026a87a2499ddca24b7cd10f0678a4fac37cbc918e1caa51005a44400b6ced4c",
     "packages/apk/NOTICE": "517b1364fae719a359f2c7ed0471c08238aac30cc4fa94336c40a9b2d0e91436",
-    "packages/apk/build.py": "3c63e5aee33a1f0a8ab5f880ecb6661b8f098f487849b35b0b62edd257837c8f",
+    "packages/apk/build.py": "5337f86db9c4bba83a3193652f88e2a288905c47a93cbc11c16f921ba07d34e0",
     "packages/apk/files/usr/bin/apk": "f7242ad566551710358c616a9d20e79af4d171016876d15ce4cffe29f9c46fbe",
     "packages/apk/files/usr/lib/systemd/system/apk-environment.service": "1cfd2787a18dc306b7636ce663271acc5df97fe645244df7fa7f144da0b04682",
     "packages/apk/files/usr/lib/systemd/system/multi-user.target.wants/apk-environment.service": "4554046bbf5dc5443502bb810659df6b73c353a5b5eb7cf0664c81ce6cb2bace",
-    "packages/apk/files/usr/libexec/zimaos-packages/apk-environment": "b53a4c9e22edff86a74094be0c29077f369183bdafa19e49aaf658a5765ddf29",
+    "packages/apk/files/usr/libexec/zimaos-packages/apk-environment": "e2565138a0204013ad84bba3c7f532a43b5492bb6c5a1122aa801b38c483c578",
     "packages/apk/files/usr/libexec/zimaos-packages/apk-launch": "bbd0b19c4b2295989ed5fc3fb622f21b0ced4296383e93b4fdbbdb3dfd529ae3",
     "packages/apk/files/usr/share/licenses/apk-tools/LICENSE": "b3c87315aae4c9f276c37168f2655dd8bd990544d7a0bbfb929664155c7ab257",
     "tools/common.py": "07c0b1e9f4db063e1e9325d7248bb2fb373e707c68fbf8aa33d747aef75677a7",
@@ -101,14 +101,14 @@
     "tools/manifest.py": "8a41cf948c64b4d58a16f022eeda4b37f62ab3cb5b8d4060a8f3dfc6ab3db660",
     "tools/pipeline.py": "c774af92bc66b2bca8e45ac0ff46e3865203c2af9b7908c0f8e8d5f71ec7b921"
   },
-  "release": 4,
+  "release": 5,
   "source": {
-    "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz.sha512",
-    "filename": "alpine-minirootfs-20260805-aarch64.tar.gz",
-    "sha512": "5516723e8f12ff99297b62ac66545775beed3ce7b5cecdb1d4df252cbd694fb6eb2aa669465ec0e042e947b74308d41a16cc381d44238e036398e46ec8be9f52",
-    "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz"
+    "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/latest-releases.yaml",
+    "filename": "alpine-minirootfs-20260805-x86_64.tar.gz",
+    "sha512": "1f9e4665146396bf5c9d17e73708256f7eac1de67adab2240e95ee39281317c1e05d20738e778fbbbd4abdccd22be3ed203b91577082101288beeb5c36804f5f",
+    "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz"
   },
   "source_date_epoch": 1793740800,
-  "target": "zimaos-arm64",
+  "target": "zimaos-amd64",
   "version": "20260805"
 }

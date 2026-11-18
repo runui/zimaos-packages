@@ -3,31 +3,31 @@
   "packages": [
     {
       "architecture": "x86_64",
-      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.bundle.tar.gz",
+      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.5/ba204f3b5d5dd014683f64d606e2f3572db70052703d2de21d3b63945f6203f8/apk.bundle.tar.gz",
       "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json",
-      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.SHA256SUMS",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.5/ba204f3b5d5dd014683f64d606e2f3572db70052703d2de21d3b63945f6203f8/apk.SHA256SUMS",
       "name": "apk",
       "os_id": "zimaos",
-      "sha256": "99a4758e7fb9a6d43543cc2c1c8c1c87ca9f6571cb0dc9c4662b4daa508b3b7a",
+      "sha256": "f95b7c51304daa2f2cce3d4bb3bc35714f303722b57135ad41923957e97c4a56",
       "size_bytes": 3743744,
       "target": "zimaos-amd64",
       "title": "apk",
-      "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.4/de68ab321f5675f9d9daafc094829f5d68abb9a0d7fa7f3a2456e09749be7910/apk.raw",
-      "version": "v2026.8.5-zimaos.4"
+      "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.5/ba204f3b5d5dd014683f64d606e2f3572db70052703d2de21d3b63945f6203f8/apk.raw",
+      "version": "v2026.8.5-zimaos.5"
     },
     {
       "architecture": "aarch64",
-      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.bundle.tar.gz",
+      "bundle_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.5/68168a42a4d0d6160766d3f898825d696361313314056d9495a22ec1aaf3926e/apk.bundle.tar.gz",
       "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/mod-v2.json",
-      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.SHA256SUMS",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.5/68168a42a4d0d6160766d3f898825d696361313314056d9495a22ec1aaf3926e/apk.SHA256SUMS",
       "name": "apk",
       "os_id": "zimaos",
-      "sha256": "04b3b15f7e97bdc7f82c947ae39c2dd135b9cf586061220cdbc3cc23cd82d9e3",
+      "sha256": "a5da9981e4942d8ea61e372fd72527e2caeca7fac1c34d3522284b082458881f",
       "size_bytes": 4067328,
       "target": "zimaos-arm64",
       "title": "apk",
-      "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.4/d0bb414573d9319f7295dbb2120036fa7d9f439dc1ab8aad51dcaaeee62d83fc/apk.raw",
-      "version": "v2026.8.5-zimaos.4"
+      "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/apk/v2026.8.5-zimaos.5/68168a42a4d0d6160766d3f898825d696361313314056d9495a22ec1aaf3926e/apk.raw",
+      "version": "v2026.8.5-zimaos.5"
     }
   ],
   "targets": [
