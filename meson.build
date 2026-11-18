@@ -27,8 +27,8 @@ if 'all' in selected
   endif
   selected = run_command(python, configure_tool, 'list', check: true, env: clean_env).stdout().strip().split('\n')
 endif
-if selected.length() > 0 and (get_option('target') == '' or get_option('os_version') == '')
-  error('Selected packages require -Dtarget and -Dos_version')
+if selected.length() > 0 and get_option('target') == ''
+  error('Selected packages require -Dtarget')
 endif
 if get_option('source_cache') != '' and not fs.is_absolute(get_option('source_cache'))
   error('source_cache must be an absolute directory')
@@ -40,7 +40,7 @@ source_targets = []
 image_targets = []
 bundle_targets = []
 foreach name : selected
-  arguments = ['--package', name, '--target', get_option('target'), '--os-version', get_option('os_version')]
+  arguments = ['--package', name, '--target', get_option('target')]
   records = run_command(python, configure_tool, 'inspect', arguments, check: true, env: clean_env).stdout().strip().split('\n')
   manifest = files('packages' / name / 'package.json')
   target = files('targets' / (get_option('target') + '.json'))
@@ -129,5 +129,5 @@ if selected.length() > 0
   alias_target('extensions', image_targets)
   alias_target('bundles', bundle_targets)
 endif
-summary({'Packages': selected, 'Target': get_option('target'), 'OS version': get_option('os_version'),
+summary({'Packages': selected, 'Target': get_option('target'),
          'Integration tests': get_option('integration_tests')})

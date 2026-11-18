@@ -29,7 +29,7 @@ def command(value):
     return value
 
 
-def load_package(root, name):
+def load_package(root, name, architecture=None):
     if not NAME.fullmatch(name):
         raise ValueError(f'invalid package name: {name!r}')
     directory = root / 'packages' / name
@@ -40,11 +40,19 @@ def load_package(root, name):
         raise ValueError('package release must be a positive integer')
     if not re.fullmatch(r'v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?', package['module_version']):
         raise ValueError('module_version must use SemVer')
-    source = package['source']
-    if not VALUE.fullmatch(source['filename']) or not re.fullmatch(r'[0-9a-f]{128}', source['sha512']):
-        raise ValueError('invalid source filename or SHA-512')
-    if not source['url'].startswith('https://'):
-        raise ValueError('upstream sources must use HTTPS')
+    if 'sources' in package:
+        if 'source' in package or 'architecture' in package:
+            raise ValueError('sources cannot be combined with source or architecture')
+        sources = package['sources']
+    else:
+        sources = {package['architecture']: package['source']}
+    if not isinstance(sources, dict) or not sources or not all(VALUE.fullmatch(key) for key in sources):
+        raise ValueError('sources must map architecture names to pinned inputs')
+    for source in sources.values():
+        if not VALUE.fullmatch(source['filename']) or not re.fullmatch(r'[0-9a-f]{128}', source['sha512']):
+            raise ValueError('invalid source filename or SHA-512')
+        if not source['url'].startswith('https://'):
+            raise ValueError('upstream sources must use HTTPS')
     command(package['build']['command'])
     for value in package['build']['inputs']:
         checked_path(directory, value)
@@ -59,6 +67,11 @@ def load_package(root, name):
         command(value)
     if not package['targets'] or not all(NAME.fullmatch(value) for value in package['targets']):
         raise ValueError('package targets must be valid target names')
+    if architecture is not None:
+        if architecture not in sources:
+            raise ValueError(f'package does not support architecture: {architecture}')
+        package = {key: value for key, value in package.items() if key != 'sources'}
+        package.update(architecture=architecture, source=sources[architecture])
     return package
 
 
@@ -72,10 +85,11 @@ def load_target(root, name):
     return target
 
 
-def extension_release(target, os_version):
-    if not VALUE.fullmatch(os_version):
-        raise ValueError('OS version must be a single os-release value')
-    return (f"ID={target['os_id']}\nVERSION_ID={os_version}\n"
+def extension_release(target):
+    # systemd requires VERSION_ID to match when ID names a specific host OS.
+    # _any is its supported form for extensions with no host version dependency;
+    # the supported OS remains explicit in the target and build provenance.
+    return ('ID=_any\n' +
             f"ARCHITECTURE={target['sysext_architecture']}\nSYSEXT_SCOPE=system\n")
 
 

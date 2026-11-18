@@ -24,13 +24,14 @@ No Meson fragment or Python callback is required inside a package.
 | `version` | Pinned upstream version or snapshot date |
 | `release` | Positive integer packaging revision |
 | `module_version` | SemVer module version, optionally prefixed with `v` |
-| `architecture` | Upstream payload architecture |
+| `architecture` | Upstream payload architecture for a package with a single `source` |
+| `sources` | Architecture-keyed source records for a package supporting multiple architectures |
 | `targets` | Supported names from `targets/` |
 | `license`, `homepage` | Primary upstream license and project URL |
-| `source.filename` | Original upstream archive basename |
-| `source.url` | HTTPS archive URL |
-| `source.sha512` | Lowercase pinned SHA-512 digest |
-| `source.checksum_reference` | Optional upstream checksum reference |
+| `source.filename` / `sources.<architecture>.filename` | Original upstream archive basename |
+| `source.url` / `sources.<architecture>.url` | HTTPS archive URL |
+| `source.sha512` / `sources.<architecture>.sha512` | Lowercase pinned SHA-512 digest |
+| `source.checksum_reference` / `sources.<architecture>.checksum_reference` | Optional upstream checksum reference |
 | `source_date_epoch` | Fixed Unix timestamp for reproducible archives and images |
 | `build.command` | Command and arguments as a JSON array |
 | `build.inputs` | Package-relative files used by the command, including local helper scripts |
@@ -41,6 +42,13 @@ No Meson fragment or Python callback is required inside a package.
 Additional fields may contain recipe-specific settings. The command receives the
 manifest path and can interpret those fields itself. List all local recipe
 inputs so Ninja can rebuild the package when a helper changes.
+
+Use either `architecture` plus `source`, or `sources` keyed by architectures
+such as `x86_64` and `aarch64`. The two forms cannot be combined. Each declared
+target selects its architecture's pinned source; a missing architecture is an
+error. The build command receives the selected archive through
+`ZPKG_SOURCE_ARCHIVE`, while `ZPKG_MANIFEST` continues to point to the original
+manifest.
 
 A Shell recipe might declare:
 
@@ -105,6 +113,7 @@ or corresponding-source obligations.
 
 Test commands receive `--image PATH` appended to their declared arguments and
 `ZPKG_TEST_WORK_DIR` pointing to a disposable-work area below the build directory.
+They also receive `ZPKG_TARGET_NAME` and `ZPKG_TARGET_ARCH` for the selected target.
 The test creates and removes its own temporary subdirectory. Generate fixtures
 and signing keys at runtime; keep default tests independent of network contents
 once the image is built.
@@ -117,12 +126,13 @@ commands can use any language that implements this interface.
 ## Contributor workflow
 
 ```sh
-meson setup build -Dpackages=PACKAGE_NAME -Dtarget=TARGET_NAME -Dos_version=VERSION_ID
+meson setup build -Dpackages=PACKAGE_NAME -Dtarget=TARGET_NAME
 meson compile -C build
 meson test -C build --suite unit --suite smoke --print-errorlogs
 meson compile -C build bundles
 ```
 
 Use `meson configure build` to inspect options and `meson introspect build
---targets` to inspect the graph. Build with an explicit destination version;
-changing compatibility metadata is not evidence of runtime compatibility.
+--targets` to inspect the graph. Document kernel, tool, and API requirements in
+the package guide. Builds select a target architecture and do not take a host
+OS version.

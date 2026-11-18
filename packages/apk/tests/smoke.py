@@ -44,7 +44,9 @@ def write(path, value):
 def official_apk(base, path):
     # Test the unmodified official client on a glibc host using its own loader.
     # This adapter is disposable test tooling, not part of the raw image.
-    command = [base / 'lib/ld-musl-x86_64.so.1', '--library-path',
+    loaders = list((base / 'lib').glob('ld-musl-*.so.1'))
+    require(len(loaders) == 1, 'expected one musl loader in the Alpine base')
+    command = [loaders[0], '--library-path',
                str(base / 'lib') + ':' + str(base / 'usr/lib'), base / 'sbin/apk']
     path.write_text('#!/bin/sh\nexec ' + ' '.join(shlex.quote(str(x)) for x in command) + ' "$@"\n')
     path.chmod(0o755)
@@ -95,12 +97,12 @@ def make_repository(apk, work):
     return repository, public_key, make_package, index
 
 
-def exercise_packages(apk, root, work):
+def exercise_packages(apk, root, work, architecture):
     repository, public_key, make_package, index = make_repository(apk, work)
     keys = root / "etc/apk/keys"
     keys.mkdir(parents=True, exist_ok=True)
     write(root / "etc/apk/repositories", str(repository / "Packages.adb") + "\n")
-    base = [apk, "--root", root, "--arch", "x86_64", "--no-progress"]
+    base = [apk, "--root", root, "--arch", architecture, "--no-progress"]
     create_options = ["--usermode"] if os.geteuid() != 0 else []
 
     # Verify that a repository signed by an unknown key is rejected, then trust
@@ -155,7 +157,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--image', required=True, type=Path)
     args = parser.parse_args()
-    package = load_package(ROOT, 'apk')
+    package = load_package(ROOT, 'apk', os.environ['ZPKG_TARGET_ARCH'])
+    architecture = package['architecture']
     for tool in ('unsquashfs', 'readelf', 'ssh-keygen'):
         require(shutil.which(tool), f'missing test dependency: {tool}')
     test_work = Path(os.environ['ZPKG_TEST_WORK_DIR'])
@@ -172,9 +175,11 @@ def main():
         base = unpacked / 'usr/share/zimaos-packages/apk/base'
         apk = official_apk(base, work / 'official-apk')
         header = run('readelf', '-h', base / 'sbin/apk')
-        require('X86-64' in header.stdout, 'unexpected executable architecture')
+        machine = {'x86_64': 'X86-64', 'aarch64': 'AArch64'}[architecture]
+        require(machine in header.stdout, 'unexpected executable architecture')
         program_headers = run('readelf', '-l', base / 'sbin/apk')
-        require('ld-musl-x86_64.so.1' in program_headers.stdout, 'unexpected apk loader')
+        require(f'ld-musl-{architecture}.so.1' in program_headers.stdout, 'unexpected apk loader')
+        require(run(apk, '--print-arch').stdout.strip() == architecture, 'unexpected apk package architecture')
         run(apk, '--version')
         # Official apk-tools 3 exits 1 after printing usage/help.
         help_result = run(apk, '--help', expect_success=False)
@@ -183,7 +188,7 @@ def main():
         require((unpacked / 'usr/share/licenses/apk-tools/LICENSE').is_file(), 'upstream license missing')
         simple = work / 'simple'
         simple.mkdir()
-        exercise_packages(apk, simple / 'root', simple)
+        exercise_packages(apk, simple / 'root', simple, architecture)
     require(digest(args.image) == original, 'test modified the raw image')
     print('PASS: module metadata, official client, signatures, dependencies, simulation, '
           'upgrade, configuration preservation, corruption rejection and uninstall')

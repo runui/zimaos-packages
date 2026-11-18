@@ -6,9 +6,9 @@ connection. ZimaOS already provides `zpkg`; you do not need to install a package
 manager or compile this project.
 
 This is a community repository. Keep your existing module sources and choose
-the source that matches your device's OS version and architecture.
+the source that matches your device's architecture.
 
-## 1. Connect and check compatibility
+## 1. Connect and check your device
 
 Enable SSH in your device's ZimaOS settings, then open a terminal on your
 computer. Replace the placeholders with your ZimaOS account and device address:
@@ -25,29 +25,35 @@ uname -m
 zpkg version
 ```
 
-Find `ID` and `VERSION_ID` in the first command's output. Use the exact
-`VERSION_ID`, including any suffix such as `-alpha2`.
+Confirm that `ID=zimaos` in the first command's output, then choose the target
+matching `uname -m`. You do not need a repository URL for a particular ZimaOS
+version.
 
-| OS ID | VERSION_ID | Architecture from `uname -m` | Repository target |
-| --- | --- | --- | --- |
-| `zimaos` | `1.8.1-alpha2` | `x86_64` | `zimaos-amd64` |
+| OS ID | Architecture from `uname -m` | Repository directory |
+| --- | --- | --- |
+| `zimaos` | `x86_64` | `zimaos/amd64` |
+| `zimaos` | `aarch64` | `zimaos/arm64` |
 
-The repository URL for that combination is:
+For x86_64, use:
 
 ```text
-https://runui.github.io/zimaos-packages/zimaos-amd64/1.8.1-alpha2/mod-v2.json
+https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json
+```
+
+For ARM64 (`aarch64`), use:
+
+```text
+https://runui.github.io/zimaos-packages/zimaos/arm64/mod-v2.json
 ```
 
 Use the [published repository information](https://runui.github.io/zimaos-packages/repository.json)
-to check available combinations and packages. The above endpoints appear after
-the first successful deployment. If your OS version or architecture is absent,
-wait for compatible packages. Renaming an image or forcing installation does
-not make it compatible.
+to check available targets and packages. The above endpoints appear after
+the first successful deployment. Package requirements, including host features
+and tools, are described in each package's guide. Renaming an image does not
+change its architecture or runtime requirements.
 
-The root `mod-v2.json` points to the repository's default compatibility, which
-can change over time. Use the version-specific URL above to keep your device
-on its own OS version. `mod.json` is also published for older clients and
-contains the same entries for each compatibility.
+Use the architecture-specific URL above. It stays the same across ZimaOS
+upgrades.
 
 ## 2. Back up your module configuration
 
@@ -66,19 +72,22 @@ sudo vi /etc/casaos/mod-management.conf
 ```
 
 In `vi`, press `i` to edit. Find the existing `[server]` section and add this
-line inside it:
+line inside it. These examples use x86_64; for ARM64, replace `zimaos/amd64`
+with `zimaos/arm64` in the URL:
 
 ```ini
-modstore = https://runui.github.io/zimaos-packages/zimaos-amd64/1.8.1-alpha2/mod-v2.json
+modstore = https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json
 ```
 
 Keep every existing setting and `modstore` line. Multiple repositories use
-repeated `modstore` keys. If there is no `[server]` section, add one at the end
+repeated `modstore` keys. Add only the entry for your device's architecture:
+both stores provide the same module names, with different executable images.
+If there is no `[server]` section, add one at the end
 of the file, followed by the new line:
 
 ```ini
 [server]
-modstore = https://runui.github.io/zimaos-packages/zimaos-amd64/1.8.1-alpha2/mod-v2.json
+modstore = https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json
 ```
 
 Do not add a second `[server]` section if one already exists. Press `Esc`, type
@@ -142,15 +151,12 @@ The `apk` module's persistent data survives extension upgrades. Updating Alpine
 software inside that environment uses `sudo apk upgrade`; see the package guide
 for its separate lifecycle.
 
-Before upgrading ZimaOS, check whether this repository publishes images for the
-new exact `VERSION_ID`. Back up your package data. After the OS upgrade, change
-only this repository's `modstore` line to the matching version-specific URL,
-restart `zimaos.service`, and refresh the list. If an existing extension cannot
-activate, install the compatible image through `zpkg`. A rebuilt image can have
-the same module version while targeting a new OS version; in that case removing
-and reinstalling the module selects the new image. The `apk` package retains
-its persistent data during removal, but check each package's guide before doing
-this with other modules.
+Back up your package data before upgrading ZimaOS. Keep the same repository URL
+after the upgrade, then run `sudo zpkg update` to check for package updates.
+The published packages do not impose an exact host OS version merely because
+ZimaOS has a new version number. They still need the kernel features, host tools,
+and APIs described in their own guides. If a package fails after an OS upgrade,
+check its requirements and available updates before reinstalling it.
 
 ## 6. Remove a package or repository
 
@@ -189,7 +195,7 @@ sudo zpkg update --clean-upgradable-cache
 
 The [repository information](https://runui.github.io/zimaos-packages/repository.json)
 lists each image's OS, architecture, SHA-256, `bundle_url`, and `checksums_url`.
-Download the bundle for your exact compatibility from its `bundle_url`.
+Download the bundle for your device's target from its `bundle_url`.
 Extract it into a new directory and check its files:
 
 ```sh
@@ -217,11 +223,11 @@ client depends on its own implementation.
 
 | Symptom | What to check |
 | --- | --- |
-| Repository returns HTTP 404 | Confirm the exact version-specific URL and that a successful deployment exists. A version that has not been published has no endpoint. |
+| Repository returns HTTP 404 | Use the `zimaos/amd64/` or `zimaos/arm64/` URL above and confirm a successful deployment exists. |
 | `apk` is absent from `zpkg list-remote` | Check that the line is inside `[server]`, keep existing sources, restart `zimaos.service`, and run `sudo zpkg update` again. |
 | `zpkg` cannot connect just after restarting | Wait a few seconds, then check `sudo systemctl status zimaos.service` and retry. |
 | Download times out or HTTPS fails | Check the device's Internet connection, DNS, date, and access to `runui.github.io`. Test the catalog with `curl -fL` followed by its URL. |
-| Image is rejected or fails to activate | Compare `ID`, exact `VERSION_ID`, and `uname -m` against `repository.json`. Use a compatible image. |
+| Image is rejected or fails to activate | Check the target OS and architecture in `repository.json`, the package's runtime requirements, and the reported error. A ZimaOS upgrade does not require a different repository path. |
 | Installed version differs from the expected version | Run `sudo zpkg update --clean-upgradable-cache` and compare `sudo zpkg list` with `sudo zpkg list-remote`. Check other configured sources for the same module name. |
 | `apk` requires root or a command is not found | Use `sudo apk ...`. For Alpine tools, use `sudo apk exec COMMAND ...`; host commands with the same name take precedence. |
 | Alpine downloads fail after the module is installed | Check `sudo apk environment` and the Alpine repository settings described in the package guide. |

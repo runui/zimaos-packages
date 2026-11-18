@@ -48,12 +48,13 @@ creation, and testing. Unchanged specifications retain their timestamps.
 | Existing runtime file or notice | Assembly, image, checksums, and any requested bundle |
 | Recipe command input | Package staging and downstream targets |
 | Upstream input identity | Download verification and downstream targets |
-| Destination OS version | Assembly and downstream targets |
 | Deleted raw image | Image and downstream targets |
 
 Selected packages can build in parallel. Use Ninja's job count and the
 `image_threads` option to control concurrency. Add or remove packages and
 payload files through a Meson reconfiguration so the declared input set updates.
+Different target architectures use separate build directories and can build
+concurrently from the same checkout.
 
 ## Image contents
 
@@ -67,9 +68,24 @@ usr/share/licenses/zimaos-packages/LICENSE
 ```
 
 The filename, compatibility-file suffix, and module identity use the package
-name. Compatibility declares an exact OS ID, OS version, and architecture.
-Provenance records upstream identity, recipe and payload hashes, target metadata,
-and optional package details. Published provenance uses repository-relative
+name. Targets and provenance declare the supported OS and architecture. The
+extension uses systemd's `ID=_any` with an explicit architecture
+and no `VERSION_ID`, allowing a self-contained userspace to work across host
+OS versions. systemd requires a matching `VERSION_ID` when a specific host
+`ID` is used, so dropping that field alone would still reject the image.
+Package runtime requirements remain separate from the repository URL, which
+is scoped by target.
+
+Public directories use `<os_id>/<architecture>/`, with architecture names such
+as `amd64` and `arm64`. Each directory contains `mod-v2.json` and
+`packages/<name>/<module_version>/<bundle_sha256>/` distributions. Internal
+target names such as `zimaos-amd64` remain build identifiers. Each publication
+replaces the branch contents with the current set of verified distributions.
+
+Provenance records the resolved manifest for the selected architecture, upstream
+identity, recipe and payload hashes, target metadata, and optional package
+details. Other architectures' source records do not affect an image's provenance
+or clean build output. Published provenance uses repository-relative
 input names; temporary machine paths remain in the local build configuration.
 
 Images are read-only. Packages needing writable state define their own

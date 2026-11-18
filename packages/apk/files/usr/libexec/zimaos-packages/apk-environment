@@ -14,6 +14,11 @@ root=$runtime/root
 lower=$runtime/lower
 
 fail() { echo "apk: $*" >&2; exit 1; }
+musl_loader() {
+    set -- "$lower"/lib/ld-musl-*.so.1
+    [ "$#" -eq 1 ] && [ -f "$1" ] || fail 'expected one musl loader in the Alpine base'
+    printf '%s\n' "${1##*/}"
+}
 [ "$(id -u)" -eq 0 ] || fail 'this Alpine environment requires root (sudo apk ...)'
 
 # A separate mount namespace is used for every invocation. Only the persistent
@@ -38,7 +43,7 @@ if [ "${1:-}" = namespace ]; then
     if [ "$operation" = native ]; then
         # Explicit --root and standalone package tools retain host path
         # semantics, using the same official Alpine binary and libraries.
-        exec "$root/lib/ld-musl-x86_64.so.1" --library-path "$root/lib:$root/usr/lib" "$root/sbin/apk" "$@"
+        exec "$root/lib/$(musl_loader)" --library-path "$root/lib:$root/usr/lib" "$root/sbin/apk" "$@"
     fi
     if [ "$operation" = package ]; then set -- /sbin/apk "$@"; fi
     # Relative arguments resolve against the real host working directory, while
@@ -143,7 +148,7 @@ sync_launchers() {
 enter() {
     # BusyBox from the pinned official lower already provides unshare. Loading
     # it with its own musl removes both a custom C helper and an Entware dependency.
-    exec "$lower/lib/ld-musl-x86_64.so.1" --library-path "$lower/lib:$lower/usr/lib" \
+    exec "$lower/lib/$(musl_loader)" --library-path "$lower/lib:$lower/usr/lib" \
         "$lower/bin/busybox" unshare --mount --propagation private "$0" namespace "$@"
 }
 

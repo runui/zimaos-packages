@@ -112,7 +112,7 @@ def assemble(spec, args):
         validate_root(rootfs)
         metadata = rootfs / 'usr/lib/extension-release.d' / ('extension-release.' + name)
         metadata.parent.mkdir(parents=True, exist_ok=True)
-        metadata.write_text(extension_release(spec['target'], spec['os_version']))
+        metadata.write_text(extension_release(spec['target']))
         module = {'name': name, 'version': package['module_version'],
                   'services': package.get('services', []),
                   'hook': {hook: [] for hook in ('preInstall', 'postInstall', 'preUninstall',
@@ -129,8 +129,10 @@ def assemble(spec, args):
             write_changed(args.output_dir / (name + '.NOTICE'), (directory / 'NOTICE').read_bytes())
         provenance = {'package': name, 'version': package['version'], 'release': package['release'],
                       'module_version': package['module_version'], 'target': spec['target_name'],
-                      'os_version': spec['os_version'], 'architecture': spec['target']['architecture'],
+                      'os_id': spec['target']['os_id'],
+                      'architecture': spec['target']['architecture'],
                       'source': package['source'], 'source_date_epoch': package['source_date_epoch'],
+                      'manifest': package,
                       'recipe': {name: input_digest(path) for name, path in spec['inputs'].items()},
                       'details': read_json(args.details)}
         write_json(rootfs / 'usr/share/zimaos-packages' / name / 'build-info.json', provenance)
@@ -190,6 +192,7 @@ def main():
     else:
         args.work_dir.mkdir(parents=True, exist_ok=True)
         environment = {**os.environ, 'PYTHONDONTWRITEBYTECODE': '1',
+                       'ZPKG_TARGET_NAME': spec['target_name'], 'ZPKG_TARGET_ARCH': spec['architecture'],
                        'ZPKG_TEST_WORK_DIR': str(args.work_dir.resolve())}
         run(*spec['commands'][args.suite], '--image', args.image.resolve(),
             cwd=spec['package_dir'], env=environment)

@@ -15,8 +15,9 @@ Primary components include:
 - zlib: Zlib
   https://zlib.net/
 
-The manifest pins the official archive URL and SHA-512. The build output includes
-runtime-packages.txt; the runtime database at /lib/apk/db/installed also records
+The manifest pins each architecture's official archive URL and SHA-512. The
+build output includes runtime-packages.txt; the runtime database at
+/lib/apk/db/installed also records
 component versions, licenses, origins, and aports commit identifiers.
 
 Alpine package recipes and source references:

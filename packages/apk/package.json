@@ -2,19 +2,27 @@
   "name": "apk",
   "description": "Official Alpine package tools with a persistent userspace environment",
   "version": "20260805",
-  "release": 3,
-  "module_version": "v2026.8.5-zimaos.3",
-  "architecture": "x86_64",
+  "release": 4,
+  "module_version": "v2026.8.5-zimaos.4",
   "targets": [
-    "zimaos-amd64"
+    "zimaos-amd64",
+    "zimaos-arm64"
   ],
   "license": "GPL-2.0-only",
   "homepage": "https://gitlab.alpinelinux.org/alpine/apk-tools",
-  "source": {
-    "filename": "alpine-minirootfs-20260805-x86_64.tar.gz",
-    "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz",
-    "sha512": "1f9e4665146396bf5c9d17e73708256f7eac1de67adab2240e95ee39281317c1e05d20738e778fbbbd4abdccd22be3ed203b91577082101288beeb5c36804f5f",
-    "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/latest-releases.yaml"
+  "sources": {
+    "x86_64": {
+      "filename": "alpine-minirootfs-20260805-x86_64.tar.gz",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz",
+      "sha512": "1f9e4665146396bf5c9d17e73708256f7eac1de67adab2240e95ee39281317c1e05d20738e778fbbbd4abdccd22be3ed203b91577082101288beeb5c36804f5f",
+      "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/latest-releases.yaml"
+    },
+    "aarch64": {
+      "filename": "alpine-minirootfs-20260805-aarch64.tar.gz",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz",
+      "sha512": "5516723e8f12ff99297b62ac66545775beed3ce7b5cecdb1d4df252cbd694fb6eb2aa669465ec0e042e947b74308d41a16cc381d44238e036398e46ec8be9f52",
+      "checksum_reference": "https://dl-cdn.alpinelinux.org/alpine/edge/releases/aarch64/alpine-minirootfs-20260805-aarch64.tar.gz.sha512"
+    }
   },
   "source_date_epoch": 1793740800,
   "services": [

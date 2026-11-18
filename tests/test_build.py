@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
@@ -68,10 +69,53 @@ class SourceIntegrityTests(unittest.TestCase):
 
 
 class ManifestTests(unittest.TestCase):
-    def test_os_version_cannot_inject_metadata_or_paths(self):
-        for value in ('../other', '1.0\nID=_any', '', '/'):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                extension_release({'os_id': 'test', 'sysext_architecture': 'x86-64'}, value)
+    def test_architecture_sources_are_selected_and_verified_independently(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / 'packages/demo'
+            directory.mkdir(parents=True)
+            (directory / 'build.sh').touch()
+            package = definition('demo', '0' * 128)
+            package.pop('architecture')
+            source = package.pop('source')
+            package['sources'] = {'x86_64': source, 'aarch64': {
+                'filename': 'arm64.tar', 'url': 'https://example.invalid/arm64.tar', 'sha512': '1' * 128}}
+            manifest = directory / 'package.json'
+            manifest.write_text(json.dumps(package))
+            for architecture, expected in package['sources'].items():
+                resolved = load_package(root, 'demo', architecture)
+                self.assertEqual(resolved['architecture'], architecture)
+                self.assertEqual(resolved['source'], expected)
+                self.assertNotIn('sources', resolved)
+            with self.assertRaisesRegex(ValueError, 'does not support architecture'):
+                load_package(root, 'demo', 'armv7')
+            package['sources']['aarch64']['sha512'] = 'invalid'
+            manifest.write_text(json.dumps(package))
+            with self.assertRaisesRegex(ValueError, 'SHA-512'):
+                load_package(root, 'demo', 'x86_64')
+            package['source'] = source
+            manifest.write_text(json.dumps(package))
+            with self.assertRaisesRegex(ValueError, 'cannot be combined'):
+                load_package(root, 'demo')
+
+    def test_single_architecture_packages_reject_other_architectures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / 'packages/demo'
+            directory.mkdir(parents=True)
+            (directory / 'build.sh').touch()
+            (directory / 'package.json').write_text(json.dumps(definition('demo', '0' * 128)))
+            self.assertEqual(load_package(root, 'demo', 'x86_64')['architecture'], 'x86_64')
+            with self.assertRaisesRegex(ValueError, 'does not support architecture'):
+                load_package(root, 'demo', 'aarch64')
+
+    def test_default_images_have_no_host_version_constraint(self):
+        for architecture in ('x86-64', 'arm64'):
+            target = {'os_id': 'test', 'sysext_architecture': architecture}
+            with self.subTest(architecture=architecture):
+                metadata = extension_release(target)
+                self.assertEqual(metadata, f'ID=_any\nARCHITECTURE={architecture}\nSYSEXT_SCOPE=system\n')
+                self.assertNotIn('VERSION_ID=', metadata)
 
     def test_names_cannot_escape_repository(self):
         for loader in (load_package, load_target):
@@ -147,6 +191,99 @@ class BuildGraphTests(unittest.TestCase):
     def count(self, name):
         return len((self.build / 'work' / name / 'runs').read_text())
 
+    def test_architectures_build_concurrently_and_rebuild_independently(self):
+        with tempfile.TemporaryDirectory(prefix='architecture graph ') as temporary:
+            root = Path(temporary)
+            source = root / 'project'
+            source.mkdir()
+            for name in ('meson.build', 'meson.options', 'LICENSE'):
+                shutil.copyfile(ROOT / name, source / name)
+            shutil.copytree(ROOT / 'tools', source / 'tools', ignore=shutil.ignore_patterns('__pycache__'))
+            directory = source / 'packages/demo'
+            directory.mkdir(parents=True)
+            (directory / 'build.sh').write_text(
+                'set -eu\nmkdir -p "$DESTDIR/usr/share/demo"\n'
+                'printf x >> "$ZPKG_BUILD_DIR/runs"\n'
+                'cp "$ZPKG_SOURCE_ARCHIVE" "$DESTDIR/usr/share/demo/source.tar"\n'
+                'printf "%s" "$ZPKG_TARGET_ARCH" > "$DESTDIR/usr/share/demo/architecture"\n')
+            package = definition('demo', '0' * 128)
+            package.pop('source')
+            package.pop('architecture')
+            package.update(targets=['test-amd64', 'test-arm64'], sources={})
+            (source / 'targets').mkdir()
+            cache = root / 'cache'
+            cache.mkdir()
+            variants = [('test-amd64', 'x86_64', 'x86-64'), ('test-arm64', 'aarch64', 'arm64')]
+            for target, architecture, sysext in variants:
+                (source / 'targets' / (target + '.json')).write_text(json.dumps({
+                    'os_id': 'test-os', 'architecture': architecture, 'sysext_architecture': sysext}))
+                archive = root / (architecture + '.tar')
+                with tarfile.open(archive, 'w') as stream:
+                    data = architecture.encode()
+                    entry = tarfile.TarInfo('architecture')
+                    entry.size = len(data)
+                    stream.addfile(entry, io.BytesIO(data))
+                checksum = hashlib.sha512(archive.read_bytes()).hexdigest()
+                package['sources'][architecture] = {'filename': archive.name,
+                    'url': 'https://example.invalid/' + archive.name, 'sha512': checksum}
+                shutil.copyfile(archive, cache / (checksum + '-' + archive.name))
+            (directory / 'package.json').write_text(json.dumps(package))
+            for target, architecture, sysext in variants:
+                build = root / target
+                self.invoke('meson', 'setup', build, source, '-Dpackages=demo', '-Dtarget=' + target,
+                            '-Dsource_cache=' + str(cache))
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                builds = [executor.submit(self.invoke, 'meson', 'compile', '-C', root / target, 'bundles')
+                          for target, _, _ in variants]
+                for build in builds:
+                    build.result()
+            for target, architecture, sysext in variants:
+                build = root / target
+                info = json.loads((build / 'demo.build-info.json').read_text())
+                self.assertEqual(info['architecture'], architecture)
+                self.assertEqual(info['os_id'], 'test-os')
+                self.assertEqual(info['source'], package['sources'][architecture])
+                self.assertEqual(self.invoke('unsquashfs', '-cat', build / 'demo.raw',
+                                            'usr/share/demo/architecture'), architecture)
+                metadata = self.invoke('unsquashfs', '-cat', build / 'demo.raw',
+                                       'usr/lib/extension-release.d/extension-release.demo')
+                self.assertIn('ARCHITECTURE=' + sysext + '\n', metadata)
+                self.assertIn('ID=_any\n', metadata)
+                self.assertNotIn('VERSION_ID=', metadata)
+            amd64 = root / 'test-amd64'
+            arm64 = root / 'test-arm64'
+            amd64_time = (amd64 / 'demo.raw').stat().st_mtime_ns
+            amd64_image = (amd64 / 'demo.raw').read_bytes()
+            arm64_image = (arm64 / 'demo.raw').read_bytes()
+            # Only the ARM source changes; both builds share the same checkout.
+            arm_source = package['sources']['aarch64']
+            changed_source = b'updated ARM source'
+            arm_source['sha512'] = hashlib.sha512(changed_source).hexdigest()
+            (cache / (arm_source['sha512'] + '-' + arm_source['filename'])).write_bytes(changed_source)
+            (directory / 'package.json').write_text(json.dumps(package))
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                builds = [executor.submit(self.invoke, 'meson', 'compile', '-C', build, 'bundles')
+                          for build in (amd64, arm64)]
+                for build in builds:
+                    build.result()
+            self.assertEqual((amd64 / 'demo.raw').stat().st_mtime_ns, amd64_time)
+            self.assertEqual((amd64 / 'demo.raw').read_bytes(), amd64_image)
+            self.assertNotEqual((arm64 / 'demo.raw').read_bytes(), arm64_image)
+            self.assertEqual((amd64 / 'work/demo/runs').read_text(), 'x')
+            self.assertEqual((arm64 / 'work/demo/runs').read_text(), 'xx')
+            # A clean amd64 build must also produce the same bytes after an
+            # unrelated architecture's source pin changes in the manifest.
+            clean_amd64 = root / 'clean-amd64'
+            self.invoke('meson', 'setup', clean_amd64, source, '-Dpackages=demo', '-Dtarget=test-amd64',
+                        '-Dsource_cache=' + str(cache))
+            self.invoke('meson', 'compile', '-C', clean_amd64)
+            self.assertEqual((clean_amd64 / 'demo.raw').read_bytes(), amd64_image)
+            (arm64 / ('demo.source-' + arm_source['filename'])).write_bytes(b'corrupt ARM download')
+            failure = self.invoke('meson', 'compile', '-C', arm64, success=False)
+            self.assertIn('source checksum mismatch', failure)
+            self.assertIn('no work to do', self.invoke('meson', 'compile', '-C', amd64))
+            self.assertEqual((amd64 / 'demo.raw').read_bytes(), amd64_image)
+
     def test_languages_incremental_dependencies_and_failure_recovery(self):
         with tempfile.TemporaryDirectory(prefix='extension graph ') as temporary:
             root = Path(temporary)
@@ -194,7 +331,7 @@ class BuildGraphTests(unittest.TestCase):
                     package['build'] = {'command': [sys.executable, 'recipe.py'], 'inputs': ['recipe.py']}
                 (directory / 'package.json').write_text(json.dumps(package))
             self.invoke('meson', 'setup', self.build, source, '-Dpackages=all', '-Dtarget=test-amd64',
-                        '-Dos_version=1.0', '-Dsource_cache=' + str(cache))
+                        '-Dsource_cache=' + str(cache))
             self.invoke('meson', 'compile', '-C', self.build, '-j', '2')
             self.assertEqual((self.count('alpha'), self.count('beta')), (1, 1))
             for name in ('alpha', 'beta'):
@@ -222,12 +359,6 @@ class BuildGraphTests(unittest.TestCase):
             recipe.write_text(recipe.read_text() + '# recipe revision\n')
             self.invoke('meson', 'compile', '-C', self.build)
             self.assertEqual((self.count('alpha'), self.count('beta')), (2, 1))
-            self.invoke('meson', 'configure', self.build, '-Dos_version=2.0')
-            self.invoke('meson', 'compile', '-C', self.build)
-            self.assertEqual((self.count('alpha'), self.count('beta')), (2, 1))
-            release = self.invoke('unsquashfs', '-cat', self.build / 'alpha.raw',
-                                  'usr/lib/extension-release.d/extension-release.alpha')
-            self.assertIn('VERSION_ID=2.0\n', release)
             added = config.with_name('added.txt')
             added.write_text('new payload\n')
             self.invoke('meson', 'setup', '--reconfigure', self.build, source)

@@ -4,6 +4,11 @@ The `apk` module supplies official Alpine package tools and a persistent Alpine
 userspace. Install it through `zpkg` after following the
 [repository configuration guide](../../docs/user-guide.md).
 
+The environment supplies its own Alpine userspace and does not require an
+exact ZimaOS version. It requires writable `/DATA` storage, OverlayFS, mount
+namespaces, and the host mount and chroot tools used by its service. Use the
+image for your device's architecture.
+
 ## Install Alpine software
 
 ```sh
@@ -102,6 +107,8 @@ sudo systemctl start apk-environment.service
 Copy the backup to another device if you need protection against disk failure.
 It contains the writable state; restoring it requires a compatible `apk`
 extension and Alpine base.
+The backup must also match the device's architecture; installed x86_64 and
+ARM64 packages cannot share the same writable environment.
 
 To restore on a compatible installation, stop the service and keep the current
 state as a separate backup. Choose an unused name for that backup too:

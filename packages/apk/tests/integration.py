@@ -44,7 +44,7 @@ def child(work, image, parent_namespace):
     upper = work / 'state/upper'
     try:
         repositories = (root / 'etc/apk/repositories').read_text()
-        expected = load_package(ROOT, 'apk')['runtime']['repositories']
+        expected = load_package(ROOT, 'apk', os.environ['ZPKG_TARGET_ARCH'])['runtime']['repositories']
         require(repositories.splitlines() == expected, 'configured repositories missing')
         require(list((root / 'etc/apk/keys').glob('*.pub')), 'official signing keys missing')
         run('package', 'info', '--exists', 'busybox', 'apk-tools')

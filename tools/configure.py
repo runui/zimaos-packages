@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import sys
 
-from manifest import ROOT, extension_release, load_package, load_target, payload_files
+from manifest import ROOT, load_package, load_target, payload_files
 
 
 def specification(package, target, args):
@@ -19,17 +19,18 @@ def specification(package, target, args):
                 'target': target, 'target_name': args.target,
                 'manifest': str(directory / 'package.json'), 'package_dir': str(directory)}
     if args.phase == 'test':
-        return {'commands': package.get('tests', {}), 'package_dir': str(directory)}
+        return {'commands': package.get('tests', {}), 'package_dir': str(directory),
+                'target_name': args.target, 'architecture': target['architecture']}
     if args.phase == 'image':
         return {'epoch': package['source_date_epoch'], 'threads': args.threads}
-    inputs = [directory / 'package.json', ROOT / 'LICENSE', ROOT / 'meson.build', ROOT / 'meson.options']
+    inputs = [ROOT / 'LICENSE', ROOT / 'meson.build', ROOT / 'meson.options']
     inputs += [directory / value for value in package['build']['inputs']]
     inputs += payload_files(directory)
     inputs += [ROOT / 'tools' / name for name in ('common.py', 'configure.py', 'manifest.py', 'pipeline.py')]
     if (directory / 'NOTICE').exists():
         inputs.append(directory / 'NOTICE')
     return {'package': package, 'target': target, 'target_name': args.target,
-            'os_version': args.os_version, 'package_dir': str(directory),
+            'package_dir': str(directory),
             'inputs': {str(path.relative_to(ROOT)): str(path) for path in inputs}}
 
 
@@ -38,7 +39,6 @@ def main():
     parser.add_argument('action', choices=('list', 'inspect', 'spec'))
     parser.add_argument('--package')
     parser.add_argument('--target')
-    parser.add_argument('--os-version')
     parser.add_argument('--phase', choices=('fetch', 'stage', 'assemble', 'image', 'test'))
     parser.add_argument('--threads', type=int, default=2)
     parser.add_argument('--json', action='store_true')
@@ -51,9 +51,8 @@ def main():
         else:
             print('\n'.join(package['name'] for package in packages))
         return
-    package = load_package(ROOT, args.package or '')
     target = load_target(ROOT, args.target or '')
-    extension_release(target, args.os_version or '')
+    package = load_package(ROOT, args.package or '', target['architecture'])
     if args.target not in package['targets'] or package['architecture'] != target['architecture']:
         raise ValueError('package does not support the selected target')
     if args.action == 'inspect':

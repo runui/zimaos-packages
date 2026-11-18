@@ -14,7 +14,7 @@ from urllib.parse import unquote
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from common import digest, pack_tree, write_json
-from manifest import extension_release
+from manifest import extension_release, load_package, load_target
 from repository import assemble, catalog
 from test_build import definition
 
@@ -39,28 +39,32 @@ class RepositoryTests(unittest.TestCase):
         write_json(self.directory / 'package.json', self.package)
         self.target = {'os_id': 'test-os', 'architecture': 'x86_64', 'sysext_architecture': 'x86-64'}
         write_json(self.root / 'targets/test-amd64.json', self.target)
-        self.config = {'default': {'target': 'test-amd64', 'os_version': '1.0'},
-                       'releases': [{'target': 'test-amd64', 'os_versions': ['1.0', '2.0']}]}
+        self.config = {'targets': ['test-amd64']}
         self.configure()
 
     def configure(self):
         write_json(self.root / 'repository.json', self.config)
 
-    def bundle(self, os_version, fault=None, variant='original'):
-        destination = self.bundles / os_version
-        destination.mkdir(exist_ok=True)
+    def bundle(self, fault=None, variant='original', target_name='test-amd64', source_data=None):
+        target = load_target(self.root, target_name)
+        package = load_package(self.root, 'demo', target['architecture'])
+        destination = self.bundles / target_name
+        destination.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=self.work) as temporary:
             work = Path(temporary)
             payload, files = work / 'payload', work / 'files'
             files.mkdir()
-            info = {'package': 'demo', 'target': 'test-amd64', 'os_version': os_version,
-                    **{key: self.package[key] for key in ('version', 'release', 'module_version', 'architecture', 'source')}}
-            module = {'name': 'demo', 'version': self.package['module_version'], 'services': []}
+            info = {'package': 'demo', 'target': target_name,
+                    'os_id': 'wrong' if fault == 'os_id' else target['os_id'],
+                    'manifest': package,
+                    **{key: package[key] for key in ('version', 'release', 'module_version', 'architecture', 'source')}}
+            module = {'name': 'demo', 'version': package['module_version'], 'services': []}
             write_json(payload / 'usr/share/casaos/modules/demo.json', module)
             write_json(payload / 'usr/share/zimaos-packages/demo/build-info.json', info)
             release = payload / 'usr/lib/extension-release.d/extension-release.demo'
             release.parent.mkdir(parents=True)
-            release.write_text(extension_release(self.target, 'wrong' if fault == 'compatibility' else os_version))
+            metadata = extension_release(target)
+            release.write_text(metadata.replace('ARCHITECTURE=', 'WRONG_ARCHITECTURE=') if fault == 'compatibility' else metadata)
             (payload / 'usr/variant').write_text(variant)
             subprocess.run(['mksquashfs', str(payload), str(files / 'demo.raw'), '-noappend',
                             '-processors', '1', '-quiet', '-no-progress'], check=True, capture_output=True)
@@ -68,7 +72,8 @@ class RepositoryTests(unittest.TestCase):
             if fault == 'module':
                 module['version'] = 'v9.0.0'
             write_json(files / 'demo.module.json', module)
-            (files / 'demo.source-payload.tar').write_bytes(b'corrupt' if fault == 'source' else self.source)
+            data = self.source if source_data is None else source_data
+            (files / ('demo.source-' + package['source']['filename'])).write_bytes(b'corrupt' if fault == 'source' else data)
             sums = ''.join(f'{digest(path)}  {path.name}\n' for path in sorted(files.iterdir()))
             if fault == 'uncovered':
                 sums = '\n'.join(sums.splitlines()[1:]) + '\n'
@@ -84,17 +89,15 @@ class RepositoryTests(unittest.TestCase):
         assemble(self.root, self.bundles, self.output, self.base_url)
 
     def test_complete_store_has_compatible_indexes_and_verified_downloads(self):
-        self.bundle('1.0')
-        self.bundle('2.0')
+        self.bundle()
         self.publish()
-        root_store = json.loads((self.output / 'mod-v2.json').read_text())
-        self.assertEqual(root_store, json.loads((self.output / 'mod.json').read_text()))
-        self.assertEqual(root_store, json.loads((self.output / 'test-amd64/1.0/mod-v2.json').read_text()))
-        self.assertNotEqual(root_store, json.loads((self.output / 'test-amd64/2.0/mod-v2.json').read_text()))
-        self.assertEqual(root_store[0]['version'], self.package['module_version'])
+        store = json.loads((self.output / 'test-os/amd64/mod-v2.json').read_text())
+        self.assertEqual(store[0]['version'], self.package['module_version'])
         records = json.loads((self.output / 'repository.json').read_text())['packages']
-        self.assertEqual({item['os_version'] for item in records}, {'1.0', '2.0'})
+        self.assertEqual(len(records), 1)
         for record in records:
+            self.assertEqual(record['catalog_url'], self.base_url + '/test-os/amd64/mod-v2.json')
+            self.assertTrue(record['url'].startswith(self.base_url + '/test-os/amd64/packages/'))
             image = self.output / unquote(record['url'].removeprefix(self.base_url + '/'))
             self.assertTrue(image.is_file())
             self.assertEqual(digest(image), record['sha256'])
@@ -104,12 +107,45 @@ class RepositoryTests(unittest.TestCase):
         self.assertTrue((self.output / '.nojekyll').is_file())
         self.assertFalse(list(self.output.rglob('*.md')))
 
+    def test_architectures_have_separate_sources_runners_and_store_entries(self):
+        arm_source = b'pinned ARM64 input'
+        self.package.pop('architecture')
+        source = self.package.pop('source')
+        self.package['sources'] = {'x86_64': source, 'aarch64': {
+            'filename': 'arm64.tar', 'url': 'https://example.invalid/arm64.tar',
+            'sha512': hashlib.sha512(arm_source).hexdigest()}}
+        self.package['targets'].append('test-arm64')
+        write_json(self.directory / 'package.json', self.package)
+        write_json(self.root / 'targets/test-arm64.json', {
+            'os_id': 'test-os', 'architecture': 'aarch64', 'sysext_architecture': 'arm64'})
+        self.config['targets'].append('test-arm64')
+        self.configure()
+        _, matrix = catalog(self.root)
+        self.assertEqual({item['target']: item['runner'] for item in matrix}, {
+            'test-amd64': 'ubuntu-24.04', 'test-arm64': 'ubuntu-24.04-arm'})
+        self.bundle()
+        # A valid bundle checksum cannot make another architecture's source
+        # archive acceptable for the selected target.
+        self.bundle(target_name='test-arm64', source_data=self.source)
+        with self.assertRaisesRegex(ValueError, 'source checksum mismatch'):
+            self.publish()
+        self.assertFalse(self.output.exists())
+        self.bundle(target_name='test-arm64', source_data=arm_source)
+        self.publish()
+        x86 = json.loads((self.output / 'test-os/amd64/mod-v2.json').read_text())
+        arm = json.loads((self.output / 'test-os/arm64/mod-v2.json').read_text())
+        self.assertEqual(x86[0]['name'], arm[0]['name'])
+        self.assertEqual(x86[0]['version'], arm[0]['version'])
+        self.assertNotEqual(x86[0]['url'], arm[0]['url'])
+        self.assertIn('/test-os/arm64/packages/', arm[0]['url'])
+        records = json.loads((self.output / 'repository.json').read_text())['packages']
+        self.assertEqual({record['architecture'] for record in records}, {'x86_64', 'aarch64'})
+
     def test_missing_duplicate_and_unexpected_bundles_do_not_publish(self):
         with self.assertRaisesRegex(ValueError, 'missing distribution'):
             self.publish()
         self.assertFalse(self.output.exists())
-        first = self.bundle('1.0')
-        self.bundle('2.0')
+        first = self.bundle()
         duplicate = self.bundles / 'duplicate'
         duplicate.mkdir()
         shutil.copyfile(first, duplicate / first.name)
@@ -117,18 +153,18 @@ class RepositoryTests(unittest.TestCase):
             self.publish()
         self.assertFalse(self.output.exists())
         shutil.rmtree(duplicate)
-        self.bundle('3.0')
+        write_json(self.root / 'targets/test-other.json', self.target)
+        self.bundle(target_name='test-other')
         with self.assertRaisesRegex(ValueError, 'unexpected or duplicate'):
             self.publish()
         self.assertFalse(self.output.exists())
 
     def test_corrupt_sources_checksums_and_embedded_metadata_do_not_publish(self):
-        self.bundle('2.0')
         for fault, message in [('checksum', 'checksum mismatch'), ('source', 'source checksum'),
                                ('compatibility', 'image compatibility'), ('module', 'module identity'),
-                               ('uncovered', 'cover every distribution file')]:
+                               ('uncovered', 'cover every distribution file'), ('os_id', 'OS identity')]:
             with self.subTest(fault=fault):
-                self.bundle('1.0', fault=fault)
+                self.bundle(fault=fault)
                 with self.assertRaisesRegex(ValueError, message):
                     self.publish()
                 self.assertFalse(self.output.exists())
@@ -153,22 +189,21 @@ class RepositoryTests(unittest.TestCase):
                 self.assertFalse((self.work / 'outside').exists())
 
     def test_changed_bundle_gets_a_new_url_without_changing_module_identity(self):
-        self.bundle('1.0')
-        self.bundle('2.0')
+        self.bundle()
         self.publish()
-        first = json.loads((self.output / 'mod-v2.json').read_text())[0]
+        first = json.loads((self.output / 'test-os/amd64/mod-v2.json').read_text())[0]
         shutil.rmtree(self.output)
-        self.bundle('1.0', variant='changed runtime')
+        self.bundle(variant='changed runtime')
         self.publish()
-        second = json.loads((self.output / 'mod-v2.json').read_text())[0]
+        second = json.loads((self.output / 'test-os/amd64/mod-v2.json').read_text())[0]
         self.assertEqual(first['version'], second['version'])
         self.assertNotEqual(first['url'], second['url'])
 
     def test_invalid_release_configuration_and_download_origins_are_rejected(self):
-        self.assertEqual(len(catalog(self.root)[1]), 2)
-        for versions in (['1.0', '1.0'], ['0.0.0'], ['../outside'], []):
-            with self.subTest(versions=versions):
-                self.config['releases'][0]['os_versions'] = versions
+        self.assertEqual(len(catalog(self.root)[1]), 1)
+        for targets in (['test-amd64', 'test-amd64'], ['../outside'], []):
+            with self.subTest(targets=targets):
+                self.config['targets'] = targets
                 self.configure()
                 with self.assertRaises(ValueError):
                     catalog(self.root)
@@ -176,6 +211,15 @@ class RepositoryTests(unittest.TestCase):
                      'https://user:password@example.invalid', 'relative'):
             with self.subTest(base=base), self.assertRaisesRegex(ValueError, 'base URL'):
                 assemble(self.root, self.bundles, self.output, base)
+
+    def test_targets_cannot_overwrite_the_same_public_directory(self):
+        self.config['targets'].append('test-other')
+        self.package['targets'].append('test-other')
+        write_json(self.directory / 'package.json', self.package)
+        write_json(self.root / 'targets/test-other.json', self.target)
+        self.configure()
+        with self.assertRaisesRegex(ValueError, 'distinct OS/architecture directories'):
+            catalog(self.root)
 
 
 if __name__ == '__main__':
