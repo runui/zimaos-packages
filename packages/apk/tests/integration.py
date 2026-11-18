@@ -18,9 +18,14 @@ def check_host_home(work, run):
     # remain visible, including on systems where homes use separate volumes.
     host_home = work / 'host-home'
     host_home.mkdir()
-    subprocess.run(['mount', '--bind', host_home, '/home'], check=True)
-    home = Path('/home') / work.name
-    home.mkdir()
+    work_in_home = work.is_relative_to('/home')
+    home = host_home
+    if not work_in_home:
+        # Supply a writable home on read-only hosts. When the workspace is
+        # already below /home, keep it visible and mount only its test child.
+        subprocess.run(['mount', '--bind', host_home, '/home'], check=True)
+        home = Path('/home') / work.name
+        home.mkdir()
     subprocess.run(['mount', '-t', 'tmpfs', 'tmpfs', home], check=True)
     try:
         (home / 'marker').write_text('host home\n')
@@ -30,7 +35,8 @@ def check_host_home(work, run):
                 'nested home working directory changed its absolute path')
     finally:
         subprocess.run(['umount', home], check=True)
-        subprocess.run(['umount', '/home'], check=True)
+        if not work_in_home:
+            subprocess.run(['umount', '/home'], check=True)
 
 
 def check_host_runtime(helper, environment, root, run):
