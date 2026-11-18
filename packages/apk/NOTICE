@@ -26,6 +26,6 @@ https://pkgs.alpinelinux.org/packages
 https://distfiles.alpinelinux.org/distfiles/
 
 The apk-tools GPL text is included in the image under
-/usr/share/licenses/apk-tools/LICENSE. Distributors must include all required
+/usr/share/licenses/apk/LICENSE. Distributors must include all required
 component notices and provide corresponding source or another arrangement
 permitted by the applicable licenses.

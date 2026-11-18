@@ -64,7 +64,9 @@ System extensions contain only `/usr`, including:
 usr/lib/extension-release.d/extension-release.<package>
 usr/share/casaos/modules/<package>.json
 usr/share/zimaos-packages/<package>/build-info.json
-usr/share/licenses/zimaos-packages/LICENSE
+usr/share/licenses/<package>/LICENSE
+usr/share/licenses/<package>/packaging/LICENSE
+usr/share/licenses/<package>/packaging/NOTICE
 ```
 
 The filename, compatibility-file suffix, and module identity use the package

@@ -1,0 +1,24 @@
+[Unit]
+Description=OCI registry mirror proxy for ZimaOS
+Wants=network-online.target docker.service
+After=systemd-sysext.service network-online.target docker.service
+RequiresMountsFor=/DATA
+
+[Service]
+Type=simple
+Environment=OCI_MIRROR_PROXY_CONFIG_HOME=/DATA/.zimaos-packages/oci-mirror-proxy
+Environment=DOCKER_HOST=unix:///var/run/docker.sock
+UnsetEnvironment=DOCKER_CONTEXT
+ExecStartPre=/usr/libexec/zimaos-packages/oci-mirror-proxy-lifecycle prepare
+ExecStart=/usr/bin/oci-mirror-proxy serve --config /DATA/.zimaos-packages/oci-mirror-proxy/config.yaml --admin-socket /run/oci-mirror-proxy/admin.sock
+ExecStartPost=/usr/libexec/zimaos-packages/oci-mirror-proxy-lifecycle connect
+ExecReload=/usr/bin/oci-mirror-proxy reload --admin-socket /run/oci-mirror-proxy/admin.sock
+ExecStopPost=/usr/libexec/zimaos-packages/oci-mirror-proxy-lifecycle disconnect
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=5min
+TimeoutStopSec=45s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

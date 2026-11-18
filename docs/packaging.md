@@ -8,11 +8,13 @@ packages/<name>/
 ├── build.sh                 Any recipe filename and supported interpreter
 ├── files/
 │   └── usr/
+├── licenses/
+│   └── LICENSE
 ├── NOTICE
 └── tests/
 ```
 
-`files/`, notices, and integration tests depend on the package's requirements.
+`files/`, `licenses/`, notices, and integration tests depend on the package's requirements.
 No Meson fragment or Python callback is required inside a package.
 
 ## Manifest
@@ -104,10 +106,32 @@ proxy settings for downloads and package commands.
 executable modes and symlinks. Changing an existing payload file rebuilds the
 image without rerunning compilation. Reconfigure after adding or removing files.
 
-Include required upstream license texts in the payload. The builder copies a
-package's `NOTICE` into `usr/share/licenses/<name>/NOTICE` and the distribution
-bundle. Provenance and component inventories do not replace upstream notices
-or corresponding-source obligations.
+Keep upstream license texts in `packages/<name>/licenses/`. The builder installs
+that tree into `/usr/share/licenses/<name>/`, preserving filenames and component
+subdirectories. Put licenses for bundled dependencies under
+`third-party/<component>/`; preserve their upstream copyright notices and any
+required `NOTICE` files. This follows the per-package license-directory
+convention used by [Fedora](https://docs.fedoraproject.org/en-US/packaging-guidelines/LicensingGuidelines/)
+and [Arch Linux](https://wiki.archlinux.org/title/PKGBUILD#license).
+[Debian](https://www.debian.org/doc/debian-policy/ch-docs.html#copyright-information)
+uses `/usr/share/doc/<name>/copyright` instead; there is no single license-file
+layout required by all Linux distributions.
+
+The builder also installs the repository license as
+`/usr/share/licenses/<name>/packaging/LICENSE` for the packaging code. Each
+extension contains its own notices and license texts, so it does not depend on
+another extension or the host providing shared license files. The source
+`licenses/` tree must not use the reserved `packaging/` directory, which holds
+the repository license and package's own packaging notice. An upstream `NOTICE`
+can remain at the root of the license tree. Files generated or extracted by a
+recipe can also be installed directly into the staged package's license directory.
+
+The package's `NOTICE` is installed at
+`/usr/share/licenses/<name>/packaging/NOTICE` and included in the distribution
+bundle. Existing license-file edits rebuild the image without rerunning
+compilation; reconfigure after adding or removing them.
+Provenance and component inventories do not replace license texts or
+corresponding-source obligations.
 
 ## Tests
 

@@ -34,6 +34,9 @@ def load_package(root, name, architecture=None):
         raise ValueError(f'invalid package name: {name!r}')
     directory = root / 'packages' / name
     package = read_json(directory / 'package.json')
+    reserved = directory / 'licenses/packaging'
+    if reserved.exists() or reserved.is_symlink():
+        raise ValueError('licenses/packaging is reserved for repository packaging notices')
     if package['name'] != name or not VALUE.fullmatch(package['version']):
         raise ValueError('invalid package identity')
     if type(package['release']) is not int or package['release'] < 1:
@@ -93,6 +96,6 @@ def extension_release(target):
             f"ARCHITECTURE={target['sysext_architecture']}\nSYSEXT_SCOPE=system\n")
 
 
-def payload_files(directory):
-    payload = directory / 'files'
+def payload_files(directory, tree='files'):
+    payload = directory / tree
     return sorted(path for path in payload.rglob('*') if path.is_file() or path.is_symlink())

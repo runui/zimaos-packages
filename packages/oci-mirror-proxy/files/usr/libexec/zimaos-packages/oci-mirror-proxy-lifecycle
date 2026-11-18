@@ -1,0 +1,77 @@
+#!/bin/sh
+set -eu
+umask 077
+
+# The extension supplies immutable programs; /DATA retains upstream configuration,
+# subscription metadata, and Docker backups across upgrades and removal.
+binary=${OCI_MIRROR_PROXY_BINARY:-/usr/bin/oci-mirror-proxy}
+state=${OCI_MIRROR_PROXY_CONFIG_HOME:-/DATA/.zimaos-packages/oci-mirror-proxy}
+socket=${OCI_MIRROR_PROXY_SOCKET:-/run/oci-mirror-proxy/admin.sock}
+export OCI_MIRROR_PROXY_CONFIG_HOME="$state"
+snapshot=$state/integration.json
+pending=$state/.bootstrap-remote
+
+warn() { printf 'oci-mirror-proxy: %s\n' "$*" >&2; }
+fail() { warn "$*"; exit 1; }
+
+disconnect() {
+    if [ -f "$snapshot" ]; then
+        if "$binary" dockerd revert --server-info "$snapshot" "$@"; then
+            rm -f "$snapshot"
+        else
+            fail "Docker cleanup failed; keep $snapshot and run oci-mirror-proxy dockerd revert --server-info $snapshot before removing the module"
+        fi
+    fi
+}
+
+operation=${1:-}
+[ "$#" -eq 0 ] || shift
+case "$operation" in
+    prepare)
+        # Do not take over an independently managed instance using this endpoint.
+        if "$binary" status --admin-socket "$socket" >/dev/null 2>&1; then
+            fail 'another proxy is running; stop that installation before starting this module'
+        fi
+        # Retry cleanup left by a failed stop or a power loss before a new
+        # connection can replace its recovery snapshot with a different address.
+        disconnect "$@"
+        mkdir -p "$state"
+        if [ ! -e "$state/config.yaml" ] && [ ! -L "$state/config.yaml" ]; then
+            "$binary" init --config "$state/config.yaml" --admin-socket "$socket"
+            touch "$pending"
+        fi
+        ;;
+    connect)
+        attempts=0
+        until "$binary" status --admin-socket "$socket" >/dev/null 2>&1; do
+            attempts=$((attempts + 1))
+            [ "$attempts" -lt 15 ] || fail 'proxy did not become ready'
+            sleep 1
+        done
+        # Only a fresh configuration enrolls the upstream default catalog. Later
+        # starts use --all so saved regions and deliberately removed remotes stay intact.
+        if [ -e "$pending" ]; then
+            if "$binary" remote update --admin-socket "$socket"; then
+                rm -f "$pending"
+            else
+                warn 'initial mirror subscription failed; it will retry on the next service start'
+            fi
+        elif ! "$binary" remote update --all --admin-socket "$socket"; then
+            warn 'mirror subscription refresh failed; keeping the saved configuration'
+        fi
+        # Save upstream server information before apply. ExecStopPost can then
+        # revert through the upstream CLI even after the proxy has exited or crashed.
+        if ! "$binary" server info --admin-socket "$socket" --json > "$snapshot.tmp"; then
+            rm -f "$snapshot.tmp"
+            fail 'cannot save proxy information for Docker cleanup'
+        fi
+        mv -f "$snapshot.tmp" "$snapshot"
+        if ! "$binary" dockerd apply --server-info "$snapshot" --verify "$@"; then
+            warn 'Docker integration is incomplete; inspect the upstream error and run oci-mirror-proxy dockerd apply --verify'
+        fi
+        ;;
+    disconnect)
+        disconnect "$@"
+        ;;
+    *) fail 'usage: oci-mirror-proxy-lifecycle prepare|connect|disconnect [dockerd options]' ;;
+esac

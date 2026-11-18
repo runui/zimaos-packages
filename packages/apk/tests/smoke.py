@@ -185,7 +185,7 @@ def main():
         help_result = run(apk, '--help', expect_success=False)
         require(help_result.returncode == 1 and 'mkpkg' in help_result.stdout,
                 'built-in help is missing or returned an unexpected status')
-        require((unpacked / 'usr/share/licenses/apk-tools/LICENSE').is_file(), 'upstream license missing')
+        require((unpacked / 'usr/share/licenses/apk/LICENSE').is_file(), 'upstream license missing')
         simple = work / 'simple'
         simple.mkdir()
         exercise_packages(apk, simple / 'root', simple, architecture)

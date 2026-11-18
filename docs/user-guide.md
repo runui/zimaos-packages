@@ -106,8 +106,8 @@ sudo zpkg list-remote
 ```
 
 Wait for the service to start before running `zpkg update`. The remote list
-should contain `apk` and its published module version. Refreshing the list does
-not upgrade installed packages.
+should contain `apk`, `oci-mirror-proxy`, and their published module versions.
+Refreshing the list does not upgrade installed packages.
 
 The built-in official store is loaded by ZimaOS automatically. Existing custom
 stores can stay configured alongside this source. If another source also
@@ -130,6 +130,17 @@ environment and its repository configuration. This package provides command
 line tools and has no dashboard tile. See [Using apk](../packages/apk/README.md)
 for installing Alpine packages, running their commands, editing Alpine settings,
 and backing up persistent data.
+
+To install the Docker registry mirror proxy:
+
+```sh
+sudo zpkg install oci-mirror-proxy
+oci-mirror-proxy status
+```
+
+Its service initializes configuration, downloads the upstream mirror catalog,
+and automatically connects local Docker. See [Using the proxy](../packages/oci-mirror-proxy/README.md)
+for subscription settings, updates, persistence, and Docker cleanup on removal.
 
 There are two different package catalogs: `zpkg update` refreshes ZimaOS
 modules; `sudo apk update` refreshes Alpine packages inside the installed

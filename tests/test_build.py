@@ -308,6 +308,11 @@ class BuildGraphTests(unittest.TestCase):
             for name in ('alpha', 'beta'):
                 directory = source / 'packages' / name
                 directory.mkdir(parents=True)
+                licenses = directory / 'licenses'
+                licenses.mkdir()
+                (licenses / 'LICENSE').write_text(name + ' upstream license\n')
+                (licenses / 'NOTICE').write_text(name + ' upstream notice\n')
+                (directory / 'NOTICE').write_text(name + ' packaging notice\n')
                 package = definition(name, checksum)
                 if name == 'alpha':
                     (directory / 'build.sh').write_text(
@@ -320,6 +325,9 @@ class BuildGraphTests(unittest.TestCase):
                     config = directory / 'files/usr/share/alpha/config.txt'
                     config.parent.mkdir(parents=True)
                     config.write_text('initial\n')
+                    component_license = licenses / 'third-party/library/LICENSE'
+                    component_license.parent.mkdir(parents=True)
+                    component_license.write_text('bundled library license\n')
                 else:
                     (directory / 'recipe.py').write_text(
                         'import os, pathlib, shutil\n'
@@ -335,6 +343,13 @@ class BuildGraphTests(unittest.TestCase):
             self.invoke('meson', 'compile', '-C', self.build, '-j', '2')
             self.assertEqual((self.count('alpha'), self.count('beta')), (1, 1))
             for name in ('alpha', 'beta'):
+                for filename, contents in (
+                        ('LICENSE', name + ' upstream license\n'),
+                        ('NOTICE', name + ' upstream notice\n'),
+                        ('packaging/NOTICE', name + ' packaging notice\n'),
+                        ('packaging/LICENSE', (source / 'LICENSE').read_text())):
+                    self.assertEqual(self.invoke('unsquashfs', '-cat', self.build / (name + '.raw'),
+                                                 'usr/share/licenses/' + name + '/' + filename), contents)
                 for line in (self.build / (name + '.SHA256SUMS')).read_text().splitlines():
                     value, filename = line.split('  ')
                     self.assertEqual(hashlib.sha256((self.build / filename).read_bytes()).hexdigest(), value)
@@ -355,6 +370,19 @@ class BuildGraphTests(unittest.TestCase):
             self.assertNotEqual((self.build / 'alpha.raw').read_bytes(), initial_raw)
             self.assertEqual((self.build / 'beta.raw').stat().st_mtime_ns, beta_time)
             self.assertEqual((self.build / 'alpha.source-payload.tar').stat().st_mtime_ns, source_time)
+            # License edits belong to image assembly, preserve their original
+            # text, and must not rebuild recipes or other packages.
+            previous = (self.build / 'alpha.raw').read_bytes()
+            component_license.write_text('updated bundled library license\n')
+            self.invoke('meson', 'compile', '-C', self.build)
+            self.assertEqual((self.count('alpha'), self.count('beta')), (1, 1))
+            self.assertNotEqual((self.build / 'alpha.raw').read_bytes(), previous)
+            self.assertEqual((self.build / 'beta.raw').stat().st_mtime_ns, beta_time)
+            self.assertEqual(self.invoke('unsquashfs', '-cat', self.build / 'alpha.raw',
+                                         'usr/share/licenses/alpha/third-party/library/LICENSE'),
+                             'updated bundled library license\n')
+            info = json.loads((self.build / 'alpha.build-info.json').read_text())
+            self.assertIn('packages/alpha/licenses/third-party/library/LICENSE', info['recipe'])
             recipe = source / 'packages/alpha/build.sh'
             recipe.write_text(recipe.read_text() + '# recipe revision\n')
             self.invoke('meson', 'compile', '-C', self.build)

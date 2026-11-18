@@ -2,8 +2,8 @@
   "name": "apk",
   "description": "Official Alpine package tools with a persistent userspace environment",
   "version": "20260805",
-  "release": 5,
-  "module_version": "v2026.8.5-zimaos.5",
+  "release": 6,
+  "module_version": "v2026.8.5-zimaos.6",
   "targets": [
     "zimaos-amd64",
     "zimaos-arm64"

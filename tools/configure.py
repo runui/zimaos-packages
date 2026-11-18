@@ -26,6 +26,7 @@ def specification(package, target, args):
     inputs = [ROOT / 'LICENSE', ROOT / 'meson.build', ROOT / 'meson.options']
     inputs += [directory / value for value in package['build']['inputs']]
     inputs += payload_files(directory)
+    inputs += payload_files(directory, 'licenses')
     inputs += [ROOT / 'tools' / name for name in ('common.py', 'configure.py', 'manifest.py', 'pipeline.py')]
     if (directory / 'NOTICE').exists():
         inputs.append(directory / 'NOTICE')
@@ -61,6 +62,8 @@ def main():
         for value in package['build']['inputs']:
             print('recipe\t' + str((directory / value).relative_to(ROOT)))
         for path in payload_files(directory):
+            print('payload\t' + str(path.relative_to(ROOT)))
+        for path in payload_files(directory, 'licenses'):
             print('payload\t' + str(path.relative_to(ROOT)))
         for value in package['build'].get('artifacts', []):
             print('artifact\t' + value)

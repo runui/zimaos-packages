@@ -119,13 +119,14 @@ def assemble(spec, args):
                                                 'postUninstall', 'preUpdate', 'postUpdate')}}
         write_json(rootfs / 'usr/share/casaos/modules' / (name + '.json'), module)
         root = Path(__file__).resolve().parents[1]
-        license_path = rootfs / 'usr/share/licenses/zimaos-packages/LICENSE'
+        licenses = rootfs / 'usr/share/licenses' / name
+        if (directory / 'licenses').exists():
+            shutil.copytree(directory / 'licenses', licenses, dirs_exist_ok=True, symlinks=True)
+        license_path = licenses / 'packaging/LICENSE'
         license_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / 'LICENSE', license_path)
         if (directory / 'NOTICE').exists():
-            notice = rootfs / 'usr/share/licenses' / name / 'NOTICE'
-            notice.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(directory / 'NOTICE', notice)
+            shutil.copyfile(directory / 'NOTICE', licenses / 'packaging/NOTICE')
             write_changed(args.output_dir / (name + '.NOTICE'), (directory / 'NOTICE').read_bytes())
         provenance = {'package': name, 'version': package['version'], 'release': package['release'],
                       'module_version': package['module_version'], 'target': spec['target_name'],
