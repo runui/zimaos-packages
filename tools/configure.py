@@ -25,7 +25,7 @@ def specification(package, target, args):
     inputs = [directory / 'package.json', ROOT / 'LICENSE', ROOT / 'meson.build', ROOT / 'meson.options']
     inputs += [directory / value for value in package['build']['inputs']]
     inputs += payload_files(directory)
-    inputs += sorted((ROOT / 'tools').glob('*.py'))
+    inputs += [ROOT / 'tools' / name for name in ('common.py', 'configure.py', 'manifest.py', 'pipeline.py')]
     if (directory / 'NOTICE').exists():
         inputs.append(directory / 'NOTICE')
     return {'package': package, 'target': target, 'target_name': args.target,

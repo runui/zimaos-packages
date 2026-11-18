@@ -1,0 +1,12 @@
+{
+  "default": {
+    "target": "zimaos-amd64",
+    "os_version": "1.8.1-alpha2"
+  },
+  "releases": [
+    {
+      "target": "zimaos-amd64",
+      "os_versions": ["1.8.1-alpha2"]
+    }
+  ]
+}

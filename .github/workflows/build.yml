@@ -1,43 +1,60 @@
-name: Build system extensions
+name: Build and publish system extensions
 
 on:
   push:
+    branches: [main]
+    paths:
+      - .github/workflows/build.yml
+      - packages/**
+      - targets/**
+      - tools/**
+      - tests/**
+      - meson.build
+      - meson.options
+      - repository.json
+      - LICENSE
   pull_request:
   workflow_dispatch:
-    inputs:
-      os_version:
-        description: Exact VERSION_ID of the destination ZimaOS system
-        required: true
-        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PYTHONDONTWRITEBYTECODE: '1'
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   catalog:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       matrix: ${{ steps.catalog.outputs.matrix }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - name: Install shared test tools
-        run: sudo apt-get update && sudo apt-get install -y meson ninja-build squashfs-tools
-      - name: Check shared tooling and the build graph
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends meson ninja-build squashfs-tools
+      - name: Check shared tooling, repository assembly, and the build graph
         run: |
-          meson setup build
-          meson test -C build --suite unit --print-errorlogs
-      - name: Discover package targets
+          meson setup "$RUNNER_TEMP/check"
+          meson test -C "$RUNNER_TEMP/check" --suite unit --print-errorlogs
+      - name: Discover release compatibility and package targets
         id: catalog
         run: |
-          matrix=$(python3 tools/configure.py list --json)
+          matrix=$(python3 tools/repository.py matrix)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   extensions:
     needs: catalog
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -45,31 +62,133 @@ jobs:
     env:
       PACKAGE: ${{ matrix.package }}
       TARGET: ${{ matrix.target }}
-      OS_VERSION: ${{ inputs.os_version || '0.0.0' }}
+      OS_VERSION: ${{ matrix.os_version }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
       - name: Install build and test tools
-        run: sudo apt-get update && sudo apt-get install -y meson ninja-build squashfs-tools binutils openssh-client util-linux
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends meson ninja-build squashfs-tools binutils openssh-client util-linux
       - name: Configure package build
-        run: meson setup build -Dpackages="$PACKAGE" -Dtarget="$TARGET" -Dos_version="$OS_VERSION" -Dintegration_tests=true
+        run: meson setup "$RUNNER_TEMP/build" -Dpackages="$PACKAGE" -Dtarget="$TARGET" -Dos_version="$OS_VERSION" -Dintegration_tests=true
       - name: Build extension
-        run: meson compile -C build
+        run: meson compile -C "$RUNNER_TEMP/build"
       - name: Verify unchanged builds do no work
-        run: ninja -C build -n | tee build/incremental.txt && grep -q 'no work to do' build/incremental.txt
+        run: ninja -C "$RUNNER_TEMP/build" -n | tee "$RUNNER_TEMP/incremental.txt" && grep -q 'no work to do' "$RUNNER_TEMP/incremental.txt"
       - name: Run package smoke tests
-        run: meson test -C build --suite smoke --print-errorlogs
+        run: meson test -C "$RUNNER_TEMP/build" --suite smoke --print-errorlogs
       - name: Run available integration suites in private namespaces
         run: |
           if python3 -c 'import json, os; p = json.load(open("packages/" + os.environ["PACKAGE"] + "/package.json")); raise SystemExit("integration" not in p.get("tests", {}))'; then
-            sudo meson test -C build --suite integration --print-errorlogs
+            sudo meson test -C "$RUNNER_TEMP/build" --suite integration --print-errorlogs
           fi
-      - name: Create distribution bundle
-        if: github.event_name == 'workflow_dispatch'
-        run: meson compile -C build bundles
-      - name: Retain manually requested distribution artifacts
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - name: Create verified distribution bundle
+        run: meson compile -C "$RUNNER_TEMP/build" bundles
+      - name: Retain distribution bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ${{ matrix.package }}-${{ matrix.target }}-${{ inputs.os_version }}
-          path: build/*.bundle.tar.gz
+          name: package-${{ matrix.package }}-${{ matrix.target }}-${{ matrix.os_version }}
+          path: ${{ runner.temp }}/build/*.bundle.tar.gz
           if-no-files-found: error
+          retention-days: 7
+      - name: Retain test diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: logs-${{ matrix.package }}-${{ matrix.target }}-${{ matrix.os_version }}
+          path: ${{ runner.temp }}/build/meson-logs/
+          retention-days: 7
+
+  repository:
+    needs: extensions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ vars.PACKAGES_BASE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - name: Install image inspection tool
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends squashfs-tools
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: package-*
+          path: ${{ runner.temp }}/bundles
+      - name: Verify all bundles and generate module store declarations
+        run: python3 tools/repository.py build --bundles "$RUNNER_TEMP/bundles" --output "$RUNNER_TEMP/site" --base-url "$BASE_URL"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: module-repository
+          path: ${{ runner.temp }}/site/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: module-repository
+          path: ${{ runner.temp }}/site
+      - name: Read GitHub Pages configuration
+        id: pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Verify published download origin
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          site = Path(os.environ['RUNNER_TEMP']) / 'site'
+          configured = urlsplit(os.environ['PAGES_BASE_URL'].rstrip('/'))
+          generated = urlsplit(json.loads((site / 'repository.json').read_text())['base_url'])
+          if (configured.scheme, configured.hostname, configured.path) != (generated.scheme, generated.hostname, generated.path):
+              raise SystemExit('Set the PACKAGES_BASE_URL repository variable to the configured GitHub Pages URL and rerun.')
+          PY
+      - name: Publish generated packages and declarations to gh-pages
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ${{ runner.temp }}/site
+          keep_files: true
+      # GITHUB_TOKEN pushes do not trigger a branch-based Pages build. Deploy
+      # the complete publication branch explicitly, retaining old immutable
+      # downloads so clients with cached module declarations can still install.
+      - name: Read the complete publication branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: gh-pages
+          path: published
+          persist-credentials: false
+      - name: Verify Pages payload size
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [p for p in Path('published').rglob('*') if '.git' not in p.parts and p.is_file()]
+          if sum(p.stat().st_size for p in files) >= 1024 ** 3:
+              raise SystemExit('Publication branch exceeds the GitHub Pages 1 GiB site limit.')
+          PY
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: published
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

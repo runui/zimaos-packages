@@ -89,4 +89,4 @@ Neither builds nor tests install extensions on the live host.
 
 All generated files stay below the selected build directory, except an explicitly
 configured shared source cache. CI runs the same Meson commands as contributors
-and retains only distribution bundles from manually requested artifact builds.
+and verifies distribution bundles before assembling the module repository.
