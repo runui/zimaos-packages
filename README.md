@@ -26,6 +26,8 @@ Choose the module store for your device's architecture:
 Downloads and declarations become available after a successful GitHub Pages
 deployment. The publication branch contains package distributions, catalogs for
 each architecture, checksums, and provenance. Source code stays on `main`.
+The [download directory](https://runui.github.io/zimaos-packages/) lists every
+published folder and file with its modification time in UTC and size in bytes.
 
 Contributors can read [Architecture](docs/architecture.md),
 [Writing a package](docs/packaging.md), and [Contributing](CONTRIBUTING.md).

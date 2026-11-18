@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -13,6 +14,7 @@ import tempfile
 from urllib.parse import quote, urlsplit
 
 from common import digest, write_json
+from directory_index import write_indexes
 from manifest import ROOT, VALUE, extension_release, load_package, load_target, read_json
 
 MAX_FILE_BYTES = 100 * 1024 * 1024
@@ -132,6 +134,7 @@ def assemble(root, bundles, output, base_url):
         raise ValueError('repository output must not already exist')
     output.parent.mkdir(parents=True, exist_ok=True)
     stores = {}
+    epochs = {}
     records = []
 
     def url(path):
@@ -155,9 +158,11 @@ def assemble(root, bundles, output, base_url):
                 relative = platform / 'packages' / name / package['module_version'] / digest(bundle)
                 destination = site / relative
                 destination.mkdir(parents=True)
-                for path in directory.iterdir():
+                epoch = package['source_date_epoch']
+                epochs[target] = max(epochs.get(target, epoch), epoch)
+                for path in [*directory.iterdir(), bundle]:
                     shutil.copyfile(path, destination / path.name)
-                shutil.copyfile(bundle, destination / bundle.name)
+                    os.utime(destination / path.name, (epoch, epoch))
                 entry = {'name': name, 'title': package.get('title', name),
                          'version': package['module_version'], 'url': url(relative / (name + '.raw'))}
                 stores.setdefault(target, []).append(entry)
@@ -172,8 +177,13 @@ def assemble(root, bundles, output, base_url):
         for target, entries in stores.items():
             platform = repository_path(load_target(root, target))
             write_json(site / platform / 'mod-v2.json', entries)
+            os.utime(site / platform / 'mod-v2.json', (epochs[target], epochs[target]))
         write_json(site / 'repository.json', {'base_url': base_url, 'targets': config['targets'], 'packages': records})
+        epoch = max(epochs.values())
+        os.utime(site / 'repository.json', (epoch, epoch))
         (site / '.nojekyll').touch()
+        os.utime(site / '.nojekyll', (epoch, epoch))
+        write_indexes(site, base_url, epoch)
         for path in site.rglob('*'):
             if path.is_file() and path.stat().st_size >= MAX_FILE_BYTES:
                 raise ValueError(f'file exceeds GitHub publication limit: {path.name}')

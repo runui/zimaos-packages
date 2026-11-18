@@ -81,6 +81,12 @@ as `amd64` and `arm64`. Each directory contains `mod-v2.json` and
 `packages/<name>/<module_version>/<bundle_sha256>/` distributions. Internal
 target names such as `zimaos-amd64` remain build identifiers. Each publication
 replaces the branch contents with the current set of verified distributions.
+The shared `tools/templates/directory.html` template renders an `index.html` in
+every public directory. `tools/templates/404.html` renders the root error page.
+Indexes contain relative links, UTC modification times,
+and byte sizes; timestamps come from package source epochs for reproducible
+output. GitHub Pages serves these static indexes directly and uses `404.html`
+for missing paths without changing the error's HTTP status.
 
 Provenance records the resolved manifest for the selected architecture, upstream
 identity, recipe and payload hashes, target metadata, and optional package

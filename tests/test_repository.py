@@ -105,6 +105,9 @@ class RepositoryTests(unittest.TestCase):
             for key in ('bundle_url', 'checksums_url'):
                 self.assertTrue((self.output / unquote(record[key].removeprefix(self.base_url + '/'))).is_file())
         self.assertTrue((self.output / '.nojekyll').is_file())
+        self.assertTrue((self.output / '404.html').is_file())
+        for directory in [self.output, *[path for path in self.output.rglob('*') if path.is_dir()]]:
+            self.assertTrue((directory / 'index.html').is_file())
         self.assertFalse(list(self.output.rglob('*.md')))
 
     def test_architectures_have_separate_sources_runners_and_store_entries(self):
