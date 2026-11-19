@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build.yml
+      - .github/workflows/pages.yml
       - packages/**
       - targets/**
       - tools/**
@@ -41,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install shared test tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends meson ninja-build squashfs-tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends meson ninja-build squashfs-tools git-lfs
       - name: Check shared tooling, repository assembly, and the build graph
         run: |
           meson setup "$RUNNER_TEMP/check"
@@ -116,7 +117,12 @@ jobs:
           pattern: package-*
           path: ${{ runner.temp }}/bundles
       - name: Verify all bundles and generate module store declarations
-        run: python3 tools/repository.py build --bundles "$RUNNER_TEMP/bundles" --output "$RUNNER_TEMP/site" --base-url "$BASE_URL"
+        env:
+          LFS_BASE_URL: https://media.githubusercontent.com/media/${{ github.repository }}/gh-pages
+        run: |
+          python3 tools/repository.py build --bundles "$RUNNER_TEMP/bundles" \
+            --output "$RUNNER_TEMP/site" --base-url "$BASE_URL" \
+            --lfs-base-url "$LFS_BASE_URL"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: module-repository
@@ -136,14 +142,16 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
+      - name: Install Git LFS
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends git-lfs
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: module-repository
           path: ${{ runner.temp }}/site
-      - name: Publish generated packages and declarations to gh-pages
-        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ${{ runner.temp }}/site
-          keep_files: false
+      - name: Upload LFS content and publish the module repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 tools/publication.py publish --site "$RUNNER_TEMP/site" \
+            --remote "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+            --message "Publish module repository from $GITHUB_SHA"

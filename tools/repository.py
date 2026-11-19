@@ -18,6 +18,7 @@ from directory_index import write_indexes
 from manifest import ROOT, VALUE, extension_release, load_package, load_target, read_json
 
 MAX_FILE_BYTES = 100 * 1024 * 1024
+MAX_LFS_BYTES = 2 * 1024 * 1024 * 1024
 RUNNERS = {'x86_64': 'ubuntu-24.04', 'aarch64': 'ubuntu-24.04-arm'}
 
 
@@ -57,7 +58,7 @@ def unpack_bundle(bundle, destination):
         names = set()
         for member in members:
             if (not member.isfile() or not VALUE.fullmatch(member.name)
-                    or member.name in names or member.size >= MAX_FILE_BYTES):
+                    or member.name in names or member.size >= MAX_LFS_BYTES):
                 raise ValueError(f'invalid or oversized distribution member: {member.name}')
             names.add(member.name)
         for member in members:
@@ -122,12 +123,18 @@ def verify_bundle(directory, root, expected):
     return identity, package, checksums[name + '.raw']
 
 
-def assemble(root, bundles, output, base_url):
-    parsed = urlsplit(base_url)
+def checked_url(value):
+    parsed = urlsplit(value)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username
             or parsed.password or parsed.query or parsed.fragment):
         raise ValueError('repository base URL must be an absolute HTTPS URL without credentials, query, or fragment')
-    base_url = base_url.rstrip('/')
+    return value.rstrip('/')
+
+
+def assemble(root, bundles, output, base_url, lfs_base_url=None):
+    base_url = checked_url(base_url)
+    if lfs_base_url is not None:
+        lfs_base_url = checked_url(lfs_base_url)
     config, matrix = catalog(root)
     expected = {(item['package'], item['target']) for item in matrix}
     if output.exists():
@@ -136,6 +143,7 @@ def assemble(root, bundles, output, base_url):
     stores = {}
     epochs = {}
     records = []
+    download_urls = {}
 
     def url(path):
         return base_url + '/' + quote(path.as_posix())
@@ -155,23 +163,37 @@ def assemble(root, bundles, output, base_url):
                 platform = repository_path(target_info)
                 # The bundle hash identifies the complete distribution,
                 # including notices and provenance as well as the raw image.
-                relative = platform / 'packages' / name / package['module_version'] / digest(bundle)
+                bundle_checksum = digest(bundle)
+                relative = platform / 'packages' / name / package['module_version'] / bundle_checksum
                 destination = site / relative
                 destination.mkdir(parents=True)
                 epoch = package['source_date_epoch']
                 epochs[target] = max(epochs.get(target, epoch), epoch)
+                downloads = {}
                 for path in [*directory.iterdir(), bundle]:
-                    shutil.copyfile(path, destination / path.name)
-                    os.utime(destination / path.name, (epoch, epoch))
+                    size = path.stat().st_size
+                    if size >= MAX_LFS_BYTES:
+                        raise ValueError(f'file exceeds Git LFS publication limit: {path.name}')
+                    published = destination / path.name
+                    if size >= MAX_FILE_BYTES:
+                        if lfs_base_url is None:
+                            raise ValueError(f'file requires Git LFS publication: {path.name}; '
+                                             'configure --lfs-base-url')
+                        downloads[path.name] = lfs_base_url + '/' + quote((relative / path.name).as_posix())
+                        download_urls[relative / path.name] = downloads[path.name]
+                    else:
+                        downloads[path.name] = url(relative / path.name)
+                    shutil.copyfile(path, published)
+                    os.utime(published, (epoch, epoch))
                 entry = {'name': name, 'title': package.get('title', name),
-                         'version': package['module_version'], 'url': url(relative / (name + '.raw'))}
+                         'version': package['module_version'], 'url': downloads[name + '.raw']}
                 stores.setdefault(target, []).append(entry)
                 records.append({**entry, 'target': target, 'os_id': target_info['os_id'],
                                 'catalog_url': url(platform / 'mod-v2.json'),
                                 'architecture': package['architecture'],
-                                'sha256': checksum, 'size_bytes': (destination / (name + '.raw')).stat().st_size,
-                                'bundle_url': url(relative / bundle.name),
-                                'checksums_url': url(relative / (name + '.SHA256SUMS'))})
+                                'sha256': checksum, 'size_bytes': (directory / (name + '.raw')).stat().st_size,
+                                'bundle_url': downloads[bundle.name],
+                                'checksums_url': downloads[name + '.SHA256SUMS']})
         if expected:
             raise ValueError(f'missing distribution bundles: {sorted(expected)}')
         for target, entries in stores.items():
@@ -183,9 +205,15 @@ def assemble(root, bundles, output, base_url):
         os.utime(site / 'repository.json', (epoch, epoch))
         (site / '.nojekyll').touch()
         os.utime(site / '.nojekyll', (epoch, epoch))
-        write_indexes(site, base_url, epoch)
+        if download_urls:
+            attributes = site / '.gitattributes'
+            attributes.write_text(''.join(f'/{path.as_posix()} filter=lfs diff=lfs merge=lfs -text\n'
+                                          for path in sorted(download_urls)))
+            os.utime(attributes, (epoch, epoch))
+        write_indexes(site, base_url, epoch, download_urls=download_urls)
         for path in site.rglob('*'):
-            if path.is_file() and path.stat().st_size >= MAX_FILE_BYTES:
+            if (path.is_file() and path.stat().st_size >= MAX_FILE_BYTES
+                    and path.relative_to(site) not in download_urls):
                 raise ValueError(f'file exceeds GitHub publication limit: {path.name}')
         site.rename(output)
 
@@ -196,13 +224,14 @@ def main():
     parser.add_argument('--bundles', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--base-url')
+    parser.add_argument('--lfs-base-url')
     args = parser.parse_args()
     if args.action == 'matrix':
         print(json.dumps({'include': catalog(ROOT)[1]}))
     else:
         if not all((args.bundles, args.output, args.base_url)):
             parser.error('build requires --bundles, --output, and --base-url')
-        assemble(ROOT, args.bundles, args.output, args.base_url)
+        assemble(ROOT, args.bundles, args.output, args.base_url, args.lfs_base_url)
 
 
 if __name__ == '__main__':

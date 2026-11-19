@@ -207,6 +207,10 @@ sudo zpkg update --clean-upgradable-cache
 The [repository information](https://runui.github.io/zimaos-packages/repository.json)
 lists each image's OS, architecture, SHA-256, `bundle_url`, and `checksums_url`.
 Download the bundle for your device's target from its `bundle_url`.
+Large files use GitHub's Git LFS content URLs on `media.githubusercontent.com`;
+each image or bundle is still one complete file. The module store and download
+directory link to the appropriate location automatically. No Git or Git LFS
+client is needed to download or install packages.
 Extract it into a new directory and check its files:
 
 ```sh

@@ -83,6 +83,21 @@ class DirectoryIndexTests(unittest.TestCase):
         self.assertEqual(image.read_bytes(), b'package data')
         self.assertEqual(image.stat().st_mtime, self.epoch)
 
+    def test_lfs_downloads_keep_names_sizes_timestamps_and_safe_links(self):
+        name = '<large> & "image".raw'
+        image = self.file('packages/' + name, b'complete raw image')
+        directory = image.parent
+        url = 'https://media.githubusercontent.com/media/example/packages/gh-pages/image.raw?x=1&y=2'
+        download_urls = {image.relative_to(self.site): url}
+        write_indexes(self.site, 'https://example.invalid/project', self.epoch, download_urls=download_urls)
+        content = (directory / 'index.html').read_text()
+        self.assertEqual(Links(content).hrefs, ['../', url])
+        self.assertIn('&lt;large&gt; &amp; &quot;image&quot;.raw', content)
+        self.assertIn('x=1&amp;y=2', content)
+        self.assertIn(str(image.stat().st_size), content)
+        self.assertIn('2023-11-14 22:13', content)
+        self.assertEqual(image.read_bytes(), b'complete raw image')
+
     def test_links_cannot_expose_files_outside_the_publication_tree(self):
         outside = self.work / 'private'
         outside.write_text('private data')

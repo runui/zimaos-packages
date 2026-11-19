@@ -83,6 +83,26 @@ as `amd64` and `arm64`. Each directory contains `mod-v2.json` and
 `packages/<name>/<module_version>/<bundle_sha256>/` distributions. Internal
 target names such as `zimaos-amd64` remain build identifiers. Each publication
 replaces the branch contents with the current set of verified distributions.
+Files smaller than GitHub's 100 MiB Git file limit are served by Pages. Files
+at or above that limit use Git LFS on `gh-pages`, with exact paths recorded in
+the generated `.gitattributes`. Publication conservatively requires each file
+to be smaller than 2 GiB. The module `url`, `bundle_url`, and directory indexes
+point to `https://media.githubusercontent.com/media/<owner>/<repo>/gh-pages/`
+followed by the original publication path for LFS files. Raw images remain
+complete files with their original names; `zpkg` needs no Git LFS support.
+
+CI stages the complete publication tree in a disposable Git repository and
+uploads LFS objects before pushing `gh-pages`. Failed uploads leave the remote
+branch unchanged. Updates preserve branch history and reject concurrent branch
+changes instead of forcing a push. Repeated identical publications do not create
+commits. Replacing the published tree does not delete historical LFS objects;
+storage and downloads use the repository's Git LFS allowance.
+
+Pages deployment checks out `gh-pages` without downloading LFS content, removes
+LFS pointer files and `.gitattributes`, and then checks the remaining site size.
+The generated indexes keep links to the complete LFS downloads. Neither LFS
+pointers nor browser redirect pages are served as package downloads.
+
 The shared `tools/templates/directory.html` template renders an `index.html` in
 every public directory. `tools/templates/404.html` renders the root error page.
 Indexes contain relative links, UTC modification times,
@@ -114,3 +134,12 @@ Neither builds nor tests install extensions on the live host.
 All generated files stay below the selected build directory, except an explicitly
 configured shared source cache. CI runs the same Meson commands as contributors
 and verifies distribution bundles before assembling the module repository.
+To prepare large files, pass
+`--lfs-base-url https://media.githubusercontent.com/media/<owner>/<repo>/gh-pages`
+to `tools/repository.py build`. The output contains complete files and their
+LFS attributes. Publish it with `tools/publication.py publish --site <directory>
+--remote https://github.com/<owner>/<repo>.git`; CI supplies the repository from
+its context and authenticates through `GITHUB_TOKEN` with `contents: write`.
+Run `tools/publication.py prepare-pages --checkout <directory>` only on a
+disposable checkout before deploying Pages. Shared tests require Git and Git
+LFS and exercise uploads against temporary local repositories.

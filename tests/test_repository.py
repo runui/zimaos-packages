@@ -2,6 +2,7 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +107,7 @@ class RepositoryTests(unittest.TestCase):
             for key in ('bundle_url', 'checksums_url'):
                 self.assertTrue((self.output / unquote(record[key].removeprefix(self.base_url + '/'))).is_file())
         self.assertTrue((self.output / '.nojekyll').is_file())
+        self.assertFalse((self.output / '.gitattributes').exists())
         self.assertTrue((self.output / '404.html').is_file())
         for directory in [self.output, *[path for path in self.output.rglob('*') if path.is_dir()]]:
             self.assertTrue((directory / 'index.html').is_file())
@@ -144,6 +147,105 @@ class RepositoryTests(unittest.TestCase):
         records = json.loads((self.output / 'repository.json').read_text())['packages']
         self.assertEqual({record['architecture'] for record in records}, {'x86_64', 'aarch64'})
 
+    def test_large_bundle_keeps_complete_content_with_an_lfs_download_url(self):
+        self.source = os.urandom(64 * 1024)
+        self.package['source']['sha512'] = hashlib.sha512(self.source).hexdigest()
+        write_json(self.directory / 'package.json', self.package)
+        bundle = self.bundle(variant=os.urandom(64 * 1024).hex())
+        with tarfile.open(bundle) as archive:
+            limit = max(member.size for member in archive.getmembers()) + 1
+        self.assertGreater(bundle.stat().st_size, limit)
+        lfs_url = 'https://media.githubusercontent.com/media/example/packages/gh-pages'
+        with mock.patch('repository.MAX_FILE_BYTES', limit):
+            with self.assertRaisesRegex(ValueError, 'requires Git LFS'):
+                self.publish()
+            self.assertFalse(self.output.exists())
+            assemble(self.root, self.bundles, self.output, self.base_url, lfs_url)
+        record, = json.loads((self.output / 'repository.json').read_text())['packages']
+        published = self.output / unquote(record['bundle_url'].removeprefix(lfs_url + '/'))
+        self.assertEqual(published.name, bundle.name)
+        self.assertEqual(published.read_bytes(), bundle.read_bytes())
+        self.assertEqual(published.stat().st_mtime, self.package['source_date_epoch'])
+        relative = published.relative_to(self.output)
+        self.assertEqual(record['bundle_url'], lfs_url + '/' + relative.as_posix())
+        self.assertEqual((self.output / '.gitattributes').read_text(),
+                         f'/{relative.as_posix()} filter=lfs diff=lfs merge=lfs -text\n')
+        self.assertNotIn('bundle_parts', record)
+        image = self.output / unquote(record['url'].removeprefix(self.base_url + '/'))
+        self.assertEqual(digest(image), record['sha256'])
+        self.assertIn(record['bundle_url'], (image.parent / 'index.html').read_text())
+
+    def test_large_raw_image_keeps_a_direct_url_and_original_filename(self):
+        self.bundle(variant=os.urandom(128 * 1024).hex())
+        lfs_url = 'https://media.githubusercontent.com/media/example/packages/gh-pages'
+        with mock.patch('repository.MAX_FILE_BYTES', 64 * 1024):
+            assemble(self.root, self.bundles, self.output, self.base_url, lfs_url)
+        record, = json.loads((self.output / 'repository.json').read_text())['packages']
+        module, = json.loads((self.output / 'test-os/amd64/mod-v2.json').read_text())
+        self.assertEqual(module['url'], record['url'])
+        image = self.output / record['url'].removeprefix(lfs_url + '/')
+        self.assertEqual(image.name, 'demo.raw')
+        self.assertEqual(image.stat().st_size, record['size_bytes'])
+        self.assertEqual(digest(image), record['sha256'])
+        release = subprocess.check_output(['unsquashfs', '-cat', str(image),
+                                          'usr/lib/extension-release.d/extension-release.demo'], text=True)
+        self.assertEqual(release, extension_release(self.target))
+        attributes = (self.output / '.gitattributes').read_text().splitlines()
+        self.assertEqual({Path(line.split()[0]).name for line in attributes}, {'demo.raw', 'demo.bundle.tar.gz'})
+        index, = self.output.glob('test-os/amd64/packages/demo/*/*/index.html')
+        self.assertIn(record['url'], index.read_text())
+        self.assertIn(record['bundle_url'], index.read_text())
+        self.assertEqual(list(self.output.rglob('*.raw')), [image])
+
+    def test_invalid_lfs_download_origins_are_rejected_before_publication(self):
+        for url in ('http://example.invalid', 'https://example.invalid/?query',
+                    'https://user:password@example.invalid', 'relative'):
+            with self.subTest(url=url), self.assertRaisesRegex(ValueError, 'base URL'):
+                assemble(self.root, self.bundles, self.output, self.base_url, url)
+        self.assertFalse(self.output.exists())
+
+    def test_lfs_tracking_starts_at_the_git_file_limit(self):
+        self.source = os.urandom(64 * 1024)
+        self.package['source']['sha512'] = hashlib.sha512(self.source).hexdigest()
+        write_json(self.directory / 'package.json', self.package)
+        bundle = self.bundle(variant=os.urandom(64 * 1024).hex())
+        with tarfile.open(bundle) as archive:
+            size = archive.getmember('demo.raw').size
+        lfs_url = 'https://media.githubusercontent.com/media/example/packages/gh-pages'
+        for limit in (size - 1, size, size + 1):
+            with self.subTest(limit=limit), mock.patch('repository.MAX_FILE_BYTES', limit):
+                assemble(self.root, self.bundles, self.output, self.base_url, lfs_url)
+                record, = json.loads((self.output / 'repository.json').read_text())['packages']
+                self.assertEqual(record['url'].startswith(lfs_url + '/'), size >= limit)
+                attributes = (self.output / '.gitattributes').read_text()
+                self.assertEqual('demo.raw filter=lfs' in attributes, size >= limit)
+                shutil.rmtree(self.output)
+
+    def test_lfs_urls_and_attributes_keep_architectures_separate(self):
+        self.package.pop('architecture')
+        source = self.package.pop('source')
+        self.package['sources'] = {'x86_64': source, 'aarch64': {
+            'filename': 'arm.tar', 'url': 'https://example.invalid/arm.tar',
+            'sha512': hashlib.sha512(self.source).hexdigest()}}
+        self.package['targets'].append('test-arm64')
+        write_json(self.directory / 'package.json', self.package)
+        write_json(self.root / 'targets/test-arm64.json', {
+            'os_id': 'test-os', 'architecture': 'aarch64', 'sysext_architecture': 'arm64'})
+        self.config['targets'].append('test-arm64')
+        self.configure()
+        for target in self.config['targets']:
+            self.bundle(target_name=target, variant=os.urandom(128 * 1024).hex())
+        lfs_url = 'https://media.githubusercontent.com/media/example/packages/gh-pages'
+        with mock.patch('repository.MAX_FILE_BYTES', 64 * 1024):
+            assemble(self.root, self.bundles, self.output, self.base_url, lfs_url)
+        records = json.loads((self.output / 'repository.json').read_text())['packages']
+        self.assertEqual(len({record['url'] for record in records}), 2)
+        for record in records:
+            architecture = 'amd64' if record['architecture'] == 'x86_64' else 'arm64'
+            self.assertIn('/test-os/' + architecture + '/', record['url'])
+            image = self.output / record['url'].removeprefix(lfs_url + '/')
+            self.assertEqual(digest(image), record['sha256'])
+
     def test_missing_duplicate_and_unexpected_bundles_do_not_publish(self):
         with self.assertRaisesRegex(ValueError, 'missing distribution'):
             self.publish()
@@ -173,7 +275,7 @@ class RepositoryTests(unittest.TestCase):
                 self.assertFalse(self.output.exists())
 
     def test_unsafe_or_duplicate_archive_members_are_rejected(self):
-        for kind in ('traversal', 'link', 'duplicate'):
+        for kind in ('traversal', 'link', 'duplicate', 'oversized'):
             with self.subTest(kind=kind):
                 archive = self.bundles / 'unsafe.bundle.tar.gz'
                 with tarfile.open(archive, 'w:gz') as stream:
@@ -182,11 +284,11 @@ class RepositoryTests(unittest.TestCase):
                         entry.type = tarfile.SYMTYPE
                         entry.linkname = '/etc/passwd'
                     else:
-                        entry.size = 1
-                    stream.addfile(entry, io.BytesIO(b'x') if entry.isfile() else None)
+                        entry.size = 32 if kind == 'oversized' else 1
+                    stream.addfile(entry, io.BytesIO(b'x' * entry.size) if entry.isfile() else None)
                     if kind == 'duplicate':
                         stream.addfile(entry, io.BytesIO(b'y'))
-                with self.assertRaisesRegex(ValueError, 'invalid or oversized'):
+                with mock.patch('repository.MAX_LFS_BYTES', 32), self.assertRaisesRegex(ValueError, 'invalid or oversized'):
                     self.publish()
                 self.assertFalse(self.output.exists())
                 self.assertFalse((self.work / 'outside').exists())

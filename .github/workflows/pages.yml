@@ -33,12 +33,25 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Read publication tooling
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          path: source
+          persist-credentials: false
       - name: Read the publication branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: gh-pages
           path: published
+          lfs: false
           persist-credentials: false
+        env:
+          GIT_LFS_SKIP_SMUDGE: '1'
+      - name: Install Git LFS
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends git-lfs
+      - name: Exclude LFS files from the Pages payload
+        run: python3 source/tools/publication.py prepare-pages --checkout published
       - name: Verify published download origin
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,7 +12,8 @@ from common import write_changed
 TEMPLATES = Path(__file__).with_name('templates')
 
 
-def write_indexes(root, base_url, epoch):
+def write_indexes(root, base_url, epoch, *, download_urls=None):
+    download_urls = download_urls or {}
     directory_template = Template((TEMPLATES / 'directory.html').read_text())
     error_template = Template((TEMPLATES / '404.html').read_text())
     base_path = urlsplit(base_url).path.rstrip('/') + '/'
@@ -37,11 +38,15 @@ def write_indexes(root, base_url, epoch):
         width = max(50, max(map(len, labels), default=0)) + 2
         rows = ['<a href="../">../</a>'] if directory != root else []
         for path, label in zip(entries, labels):
-            href = quote(path.name, safe='') + ('/' if path.is_dir() else '')
+            href = download_urls.get(path.relative_to(root))
+            if href is None:
+                href = quote(path.name, safe='') + ('/' if path.is_dir() else '')
+            elif urlsplit(href).scheme != 'https' or not urlsplit(href).hostname:
+                raise ValueError('external downloads require absolute HTTPS URLs')
             stat = path.stat()
             date = datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime('%Y-%m-%d %H:%M')
             size = '-' if path.is_dir() else str(stat.st_size)
-            rows.append(f'<a href="{href}">{escape(label)}</a>' + ' ' * (width - len(label))
+            rows.append(f'<a href="{escape(href, quote=True)}">{escape(label)}</a>' + ' ' * (width - len(label))
                         + f'{date} {size:>12}')
         title = 'Index of ' + public_path
         body = (f'<h1>{escape(title)}</h1>\n<hr>\n'

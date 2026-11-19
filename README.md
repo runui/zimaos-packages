@@ -26,8 +26,10 @@ Choose the module store for your device's architecture:
 | `aarch64` | [zimaos/arm64](https://runui.github.io/zimaos-packages/zimaos/arm64/mod-v2.json) |
 
 Downloads and declarations become available after a successful GitHub Pages
-deployment. The publication branch contains package distributions, catalogs for
-each architecture, checksums, and provenance. Source code stays on `main`.
+deployment. The publication branch contains catalogs for each architecture,
+checksums, provenance, and distribution files. Files of 100 MiB or more use Git
+LFS on the publication branch and direct GitHub downloads. Source code stays on
+`main`.
 The [download directory](https://runui.github.io/zimaos-packages/) lists every
 published folder and file with its modification time in UTC and size in bytes.
 
