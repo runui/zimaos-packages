@@ -1,0 +1,2 @@
+/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.bundle.tar.gz filter=lfs diff=lfs merge=lfs -text
+/zimaos/arm64/packages/terma/v1.8.1-zimaos.1/6c6c4e13995925b77419e78fd8b2b8b118f4e8d5f57244e637a7ecee7f48c60f/terma.bundle.tar.gz filter=lfs diff=lfs merge=lfs -text

@@ -10,5 +10,11 @@
     "title": "oci-mirror-proxy",
     "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/oci-mirror-proxy/v1.1.0-zimaos.1/b53e6df94c0884a86e9eb846747b0c9dcca1c78cc801dd06c8d29b1e70f3a153/oci-mirror-proxy.raw",
     "version": "v1.1.0-zimaos.1"
+  },
+  {
+    "name": "terma",
+    "title": "terma",
+    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.raw",
+    "version": "v1.8.1-zimaos.1"
   }
 ]

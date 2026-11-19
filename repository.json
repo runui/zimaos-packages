@@ -56,6 +56,34 @@
       "title": "oci-mirror-proxy",
       "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/oci-mirror-proxy/v1.1.0-zimaos.1/7ebe3b1deb0732fa9eaac7a4e1831b3c3e8b32e5ee2c1774227517885948e301/oci-mirror-proxy.raw",
       "version": "v1.1.0-zimaos.1"
+    },
+    {
+      "architecture": "x86_64",
+      "bundle_url": "https://media.githubusercontent.com/media/runui/zimaos-packages/gh-pages/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.bundle.tar.gz",
+      "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/mod-v2.json",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.SHA256SUMS",
+      "name": "terma",
+      "os_id": "zimaos",
+      "sha256": "ea3031fb013fc23a3a3f73a7f974014c710b5fa4b9eb7f6cbfe122779e0498d2",
+      "size_bytes": 79319040,
+      "target": "zimaos-amd64",
+      "title": "terma",
+      "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.raw",
+      "version": "v1.8.1-zimaos.1"
+    },
+    {
+      "architecture": "aarch64",
+      "bundle_url": "https://media.githubusercontent.com/media/runui/zimaos-packages/gh-pages/zimaos/arm64/packages/terma/v1.8.1-zimaos.1/6c6c4e13995925b77419e78fd8b2b8b118f4e8d5f57244e637a7ecee7f48c60f/terma.bundle.tar.gz",
+      "catalog_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/mod-v2.json",
+      "checksums_url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/terma/v1.8.1-zimaos.1/6c6c4e13995925b77419e78fd8b2b8b118f4e8d5f57244e637a7ecee7f48c60f/terma.SHA256SUMS",
+      "name": "terma",
+      "os_id": "zimaos",
+      "sha256": "66a9bd3d2eb8651c4878f60457564087356aca12f53cb874da0aed2d75e18294",
+      "size_bytes": 79151104,
+      "target": "zimaos-arm64",
+      "title": "terma",
+      "url": "https://runui.github.io/zimaos-packages/zimaos/arm64/packages/terma/v1.8.1-zimaos.1/6c6c4e13995925b77419e78fd8b2b8b118f4e8d5f57244e637a7ecee7f48c60f/terma.raw",
+      "version": "v1.8.1-zimaos.1"
     }
   ],
   "targets": [
