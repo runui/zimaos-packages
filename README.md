@@ -11,6 +11,7 @@ local build tools are needed.
 | --- | --- | --- |
 | `apk` | Official Alpine package tools with a persistent Alpine userspace | [Using apk](packages/apk/README.md) |
 | `oci-mirror-proxy` | OCI registry mirror proxy with automatic local Docker integration | [Using the proxy](packages/oci-mirror-proxy/README.md) |
+| `terma` | Self-hosted Web workspace for SSH, terminals, SFTP, VNC, and port forwarding | [Using Terma](packages/terma/README.md) |
 
 The repository targets **ZimaOS on x86_64 and ARM64**. Choose the repository for
 your device's architecture. Repository URLs stay the same across ZimaOS

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Keep upstream arguments and signals intact; only supply writable defaults.
+set -eu
+package_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../lib/terma" && pwd)
+: "${TERMA_DATA_DIR:=/DATA/.zimaos-packages/terma/data}"
+: "${TERMA_SSH_DIR:=/DATA/.zimaos-packages/terma/ssh}"
+export TERMA_DATA_DIR TERMA_SSH_DIR
+exec "$package_dir/runtime/bin/node" "$package_dir/dist/server.js" "$@"

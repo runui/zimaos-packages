@@ -1,0 +1,54 @@
+{
+  "name": "terma",
+  "description": "Self-hosted Web workspace for SSH, terminals, SFTP, VNC, and port forwarding",
+  "version": "1.8.1",
+  "release": 1,
+  "module_version": "v1.8.1-zimaos.1",
+  "targets": ["zimaos-amd64", "zimaos-arm64"],
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/zmide/Terma",
+  "upstream_revision": "1a86e73241547d92b5822320bf1eb14f8885503e",
+  "sources": {
+    "x86_64": {
+      "filename": "Terma-1.8.1-linux-source-noarch.tar.gz",
+      "url": "https://github.com/zmide/Terma/releases/download/v1.8.1/Terma-1.8.1-linux-source-noarch.tar.gz",
+      "sha512": "a7b0275dcd71de6519a7ce6c0ee844f5ef8b0e263bfb46f75473c6af85e569fafda3232707b17d121c12b5f7afa8cf0f32e4b8b7f8942c430048c4209f38e383",
+      "checksum_reference": "https://github.com/zmide/Terma/releases/download/v1.8.1/SHA256SUMS"
+    },
+    "aarch64": {
+      "filename": "Terma-1.8.1-linux-source-noarch.tar.gz",
+      "url": "https://github.com/zmide/Terma/releases/download/v1.8.1/Terma-1.8.1-linux-source-noarch.tar.gz",
+      "sha512": "a7b0275dcd71de6519a7ce6c0ee844f5ef8b0e263bfb46f75473c6af85e569fafda3232707b17d121c12b5f7afa8cf0f32e4b8b7f8942c430048c4209f38e383",
+      "checksum_reference": "https://github.com/zmide/Terma/releases/download/v1.8.1/SHA256SUMS"
+    }
+  },
+  "source_date_epoch": 1792241010,
+  "runtime": {
+    "node_version": "22.23.5",
+    "glibc_minimum": "2.34",
+    "glibcxx_maximum_required": "3.4.29",
+    "sources": {
+      "x86_64": {
+        "filename": "node-v22.23.5-linux-x64.tar.xz",
+        "url": "https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-x64.tar.xz",
+        "sha512": "5c79b4662c43fbb27999348e2db82bc008bfc9c1ae34358dae6b0e0f4bc74f3ef42bf812780a0a408ec590eeffd9c5236b8a7c2caf1bc49a639712e21551c78b",
+        "checksum_reference": "https://nodejs.org/dist/v22.23.5/SHASUMS256.txt"
+      },
+      "aarch64": {
+        "filename": "node-v22.23.5-linux-arm64.tar.xz",
+        "url": "https://nodejs.org/dist/v22.23.5/node-v22.23.5-linux-arm64.tar.xz",
+        "sha512": "a130da1abf74c9581b43994ab52bf0cbbc6335ed2c214ac3a3c95de2cfafeb5adf47e8c8d516eff58534fe0962226aaf84479244f7071ad8ac8f148b14952e52",
+        "checksum_reference": "https://nodejs.org/dist/v22.23.5/SHASUMS256.txt"
+      }
+    }
+  },
+  "services": [{"name": "zimaos-terma.service"}],
+  "build": {
+    "command": ["python3", "build.py"],
+    "inputs": ["build.py"],
+    "artifacts": ["runtime-packages.json", "runtime-sources.tar"]
+  },
+  "tests": {
+    "smoke": ["python3", "tests/smoke.py"]
+  }
+}

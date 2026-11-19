@@ -1,0 +1,20 @@
+[Unit]
+Description=Terma Web remote connection workspace
+Wants=network-online.target
+After=systemd-sysext.service network-online.target
+RequiresMountsFor=/DATA
+
+[Service]
+Type=simple
+Environment=HOME=/DATA/.zimaos-packages/terma/home
+Environment=TERMA_DISABLE_UPDATE_CHECK=1
+EnvironmentFile=-/DATA/.zimaos-packages/terma/environment
+ExecStartPre=/bin/mkdir -p /DATA/.zimaos-packages/terma/home
+ExecStart=/usr/bin/terma
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=45s
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
