@@ -63,8 +63,36 @@ def main():
         subprocess.run(['unsquashfs', '-no-progress', '-d', str(root), str(args.image)],
                        check=True, stdout=subprocess.DEVNULL)
         require([p.name for p in root.iterdir()] == ['usr'], 'payload is not confined to /usr')
+        module = json.loads((root / 'usr/share/casaos/modules/terma.json').read_text())
+        require(module['name'] == package['name'] and module['version'] == package['module_version'],
+                'module identity does not match the recipe')
+        require(module.get('ui') == package['ui'], 'dashboard declaration is missing or incorrect')
+        dashboard_root = root / 'usr/share/casaos/www'
+        entry = dashboard_root / module['ui']['entry'].lstrip('/')
+        require(entry.is_file(), 'dashboard entry is missing')
+        icon = dashboard_root / module['ui']['icon'].lstrip('/')
+        require(icon.is_file(), 'dashboard icon is missing')
         application = root / 'usr/lib/terma'
         node = application / 'runtime/bin/node'
+        require(icon.read_bytes() == (application / 'public/assets/terma-icon.png').read_bytes(),
+                'dashboard icon differs from the upstream icon')
+        subprocess.run([node, '-e', r'''
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const html = fs.readFileSync(process.argv[1], 'utf8');
+const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+for (const origin of ['http://nas.local', 'https://192.0.2.1:8443', 'https://[2001:db8::1]']) {
+  let target;
+  vm.runInNewContext(script, {URL, window: {location: {
+    origin, replace: value => { target = value; }
+  }}});
+  assert.equal(target, `http://${new URL(origin).hostname}:8088/`);
+}
+''', entry], check=True, timeout=10)
+        service = (root / 'usr/lib/systemd/system/zimaos-terma.service').read_text()
+        require('Environment=TUNNEL_WEB_HOST=0.0.0.0\n' in service,
+                'managed service does not enable LAN access')
         info = json.loads((root / 'usr/share/zimaos-packages/terma/build-info.json').read_text())
         require(info['architecture'] == os.environ['ZPKG_TARGET_ARCH'], 'wrong target architecture')
         require(hashlib.sha256(node.read_bytes()).hexdigest() == info['details']['node_binary_sha256'],
@@ -206,7 +234,7 @@ terminal.onExit(({exitCode}) => {
         for name in ('data', 'ssh'):
             require((state / name).stat().st_mode & 0o077 == 0, 'state directory is not private')
         require(known_hosts.read_bytes() == saved_known_hosts, 'server changed caller SSH files')
-        print('Terma runtime, PTY, SSH, Web assets, authentication, persistence, and shutdown passed')
+        print('Terma dashboard, runtime, PTY, SSH, Web assets, authentication, persistence, and shutdown passed')
 
 
 if __name__ == '__main__':

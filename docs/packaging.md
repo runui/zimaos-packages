@@ -39,11 +39,21 @@ No Meson fragment or Python callback is required inside a package.
 | `build.inputs` | Package-relative files used by the command, including local helper scripts |
 | `build.artifacts` | Optional additional artifact basenames |
 | `services` | Optional module service declarations |
+| `ui` | Optional ZimaOS dashboard declaration, copied into the module JSON |
 | `tests.smoke`, `tests.integration` | Optional test commands as arrays |
 
 Additional fields may contain recipe-specific settings. The command receives the
 manifest path and can interpret those fields itself. List all local recipe
 inputs so Ninja can rebuild the package when a helper changes.
+
+For a dashboard tile, declare `ui.name`, `ui.title` (for example,
+`{"en_us": "My application"}`), `ui.show`, `ui.entry`, `ui.icon`, and
+`ui.formality` (for example, `{"type": "newtab"}`). Local URLs such as
+`/modules/<name>/index.html` and `/modules/<name>/appicon.png` are served from
+`/usr/share/casaos/www/modules/<name>/`; install these files through the recipe
+or `files/`. The generated `<name>.module.json` and the module JSON inside the
+raw image contain the same declaration. Omit `ui` for packages without a
+dashboard interface.
 
 Use either `architecture` plus `source`, or `sources` keyed by architectures
 such as `x86_64` and `aarch64`. The two forms cannot be combined. Each declared

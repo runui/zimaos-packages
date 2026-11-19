@@ -138,6 +138,9 @@ def main():
             shutil.copytree(application / name, destination / name, symlinks=True)
         for name in ('package.json', 'package-lock.json'):
             shutil.copyfile(application / name, destination / name)
+        dashboard = Path(os.environ['DESTDIR']) / 'usr/share/casaos/www/modules/terma'
+        dashboard.mkdir(parents=True)
+        shutil.copyfile(application / 'public/assets/terma-icon.png', dashboard / 'appicon.png')
         private_bin = destination / 'runtime/bin'
         private_bin.mkdir(parents=True)
         shutil.copy2(node, private_bin / 'node')

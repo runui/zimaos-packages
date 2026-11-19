@@ -18,9 +18,16 @@ sudo zpkg install terma
 systemctl status zimaos-terma.service
 ```
 
-The module manager starts `zimaos-terma.service`. Terma initially listens on
-loopback at port `8088`, following upstream defaults. From your own computer,
-forward that port through SSH (replace `USER` and `NAS_ADDRESS`):
+The module manager starts `zimaos-terma.service` and adds a **Terma** dashboard
+tile. The tile redirects to the upstream Web UI at `http://NAS_ADDRESS:8088/`
+in a new tab, using the same hostname as the dashboard. It uses the upstream
+Terma icon bundled with the pinned release.
+
+The managed service sets `TUNNEL_WEB_HOST=0.0.0.0` for LAN access and uses the
+upstream default port, `8088`. Upstream requires a configured Web password or
+access token for remote requests. For initial password setup, forward the
+loopback port through SSH from your own computer (replace `USER` and
+`NAS_ADDRESS`):
 
 ```sh
 ssh -N -L 8088:127.0.0.1:8088 USER@NAS_ADDRESS
@@ -28,9 +35,8 @@ ssh -N -L 8088:127.0.0.1:8088 USER@NAS_ADDRESS
 
 Open `http://127.0.0.1:8088` on that computer. Under **Settings → Security**, set
 a Web password and select authentication for all access if other local users
-should also authenticate. Under **Settings → Startup and Runtime**, change the
-listen address to `0.0.0.0` if you want LAN access, then use
-`http://NAS_ADDRESS:8088`. Set the password before enabling LAN access.
+should also authenticate. Once the password is set, use the dashboard tile or
+`http://NAS_ADDRESS:8088` for LAN access.
 HTTPS can be provided by your own reverse proxy; configure Terma's allowed
 hosts, trusted proxy, and origin protocol settings to match that deployment.
 
@@ -64,8 +70,9 @@ restarts, reboots, package updates, and removal. The extension's `/usr` files
 are read-only; keep the packaged data and key paths rather than using the
 upstream storage relocation UI, which needs to write beside the application.
 
-To override the listener without changing saved UI settings, create the optional
-`environment` file with systemd environment syntax, for example:
+The service's `TUNNEL_WEB_HOST=0.0.0.0` setting takes precedence over a listen
+address saved in the UI. To restrict the service to loopback, create the optional
+`environment` file with systemd environment syntax:
 
 ```ini
 TUNNEL_WEB_HOST=127.0.0.1
@@ -73,7 +80,9 @@ TUNNEL_WEB_PORT=8088
 ```
 
 Restart the service after editing this file. Environment overrides take
-precedence over the saved listener settings. Upstream environment variables
+precedence over the service defaults and saved listener settings. The dashboard
+tile uses port `8088`; if you change the port or restrict access to loopback,
+use your configured URL or SSH tunnel instead. Upstream environment variables
 such as `TERMA_AUTH_TOKEN` and `TERMA_RESET_WEB_ACCESS` are also supported;
 protect this file with mode `0600`, and remove a reset variable after recovery.
 Package defaults disable the automatic startup update check. Install application
@@ -133,7 +142,9 @@ meson compile -C build bundles
 
 Use `zimaos-arm64` on ARM64 hardware. Smoke tests extract the image and run the
 private runtime, PTY, browser assets, authenticated API, and database restart
-checks with disposable state. They neither mount nor install the extension.
+checks with disposable state. They also verify the dashboard declaration,
+redirect, icon, and service listener configuration. They neither mount nor
+install the extension.
 Native binaries are checked for target architecture, runtime library versions,
 and embedded library search paths. The distribution also includes the original
 Terma source release, `terma.runtime-packages.json`, and

@@ -2,8 +2,8 @@
   "name": "terma",
   "description": "Self-hosted Web workspace for SSH, terminals, SFTP, VNC, and port forwarding",
   "version": "1.8.1",
-  "release": 1,
-  "module_version": "v1.8.1-zimaos.1",
+  "release": 2,
+  "module_version": "v1.8.1-zimaos.2",
   "targets": ["zimaos-amd64", "zimaos-arm64"],
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/zmide/Terma",
@@ -43,6 +43,16 @@
     }
   },
   "services": [{"name": "zimaos-terma.service"}],
+  "ui": {
+    "name": "terma",
+    "title": {"en_us": "Terma"},
+    "prefetch": false,
+    "show": true,
+    "entry": "/modules/terma/index.html",
+    "icon": "/modules/terma/appicon.png",
+    "description": "Web workspace for SSH, terminals, SFTP, VNC, and port forwarding",
+    "formality": {"type": "newtab"}
+  },
   "build": {
     "command": ["python3", "build.py"],
     "inputs": ["build.py"],

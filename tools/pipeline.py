@@ -117,6 +117,8 @@ def assemble(spec, args):
                   'services': package.get('services', []),
                   'hook': {hook: [] for hook in ('preInstall', 'postInstall', 'preUninstall',
                                                 'postUninstall', 'preUpdate', 'postUpdate')}}
+        if 'ui' in package:
+            module['ui'] = package['ui']
         write_json(rootfs / 'usr/share/casaos/modules' / (name + '.json'), module)
         root = Path(__file__).resolve().parents[1]
         licenses = rootfs / 'usr/share/licenses' / name

@@ -315,6 +315,10 @@ class BuildGraphTests(unittest.TestCase):
                 (directory / 'NOTICE').write_text(name + ' packaging notice\n')
                 package = definition(name, checksum)
                 if name == 'alpha':
+                    package['ui'] = {'name': name, 'title': {'en_us': 'Alpha'}, 'show': True,
+                                     'entry': '/modules/alpha/index.html',
+                                     'icon': '/modules/alpha/appicon.png',
+                                     'formality': {'type': 'newtab'}}
                     (directory / 'build.sh').write_text(
                         'set -eu\n'
                         'printf x >> "$ZPKG_BUILD_DIR/runs"\n'
@@ -343,6 +347,15 @@ class BuildGraphTests(unittest.TestCase):
             self.invoke('meson', 'compile', '-C', self.build, '-j', '2')
             self.assertEqual((self.count('alpha'), self.count('beta')), (1, 1))
             for name in ('alpha', 'beta'):
+                module = json.loads(self.invoke('unsquashfs', '-cat', self.build / (name + '.raw'),
+                                                'usr/share/casaos/modules/' + name + '.json'))
+                sidecar = json.loads((self.build / (name + '.module.json')).read_text())
+                self.assertEqual(module, sidecar)
+                if name == 'alpha':
+                    manifest = json.loads((source / 'packages/alpha/package.json').read_text())
+                    self.assertEqual(module['ui'], manifest['ui'])
+                else:
+                    self.assertNotIn('ui', module)
                 for filename, contents in (
                         ('LICENSE', name + ' upstream license\n'),
                         ('NOTICE', name + ' upstream notice\n'),
