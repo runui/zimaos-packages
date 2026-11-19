@@ -1,0 +1,31 @@
+{
+  "hook": {
+    "postInstall": [],
+    "postUninstall": [],
+    "postUpdate": [],
+    "preInstall": [],
+    "preUninstall": [],
+    "preUpdate": []
+  },
+  "name": "terma",
+  "services": [
+    {
+      "name": "zimaos-terma.service"
+    }
+  ],
+  "ui": {
+    "description": "Web workspace for SSH, terminals, SFTP, VNC, and port forwarding",
+    "entry": "/modules/terma/index.html",
+    "formality": {
+      "type": "newtab"
+    },
+    "icon": "/modules/terma/appicon.png",
+    "name": "terma",
+    "prefetch": false,
+    "show": true,
+    "title": {
+      "en_us": "Terma"
+    }
+  },
+  "version": "v1.8.1-zimaos.2"
+}

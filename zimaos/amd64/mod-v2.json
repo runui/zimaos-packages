@@ -2,19 +2,19 @@
   {
     "name": "apk",
     "title": "apk",
-    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.6/bc351645010f52c544a6989e6ed23bce2f69945cbf99ce51bd81ade687457345/apk.raw",
+    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/apk/v2026.8.5-zimaos.6/59081dbf6cb8b68158ba9ffaf3c3d537229a06565ca88328e4f402e08eee4646/apk.raw",
     "version": "v2026.8.5-zimaos.6"
   },
   {
     "name": "oci-mirror-proxy",
     "title": "oci-mirror-proxy",
-    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/oci-mirror-proxy/v1.1.0-zimaos.1/b53e6df94c0884a86e9eb846747b0c9dcca1c78cc801dd06c8d29b1e70f3a153/oci-mirror-proxy.raw",
+    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/oci-mirror-proxy/v1.1.0-zimaos.1/ea6586e6c1182c89574da7ffa0d3cc5c1afbd00bfa765fe673e4142990465cb2/oci-mirror-proxy.raw",
     "version": "v1.1.0-zimaos.1"
   },
   {
     "name": "terma",
     "title": "terma",
-    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/terma/v1.8.1-zimaos.1/297b40bc3fea8cdf0158dd2aa52c50f9cebdb3ecb7f04b4cd0c6c0bd41446aff/terma.raw",
-    "version": "v1.8.1-zimaos.1"
+    "url": "https://runui.github.io/zimaos-packages/zimaos/amd64/packages/terma/v1.8.1-zimaos.2/d249cd50b6b4b652c03da9180e48423d5b60949949b90154350ad00449cca5c7/terma.raw",
+    "version": "v1.8.1-zimaos.2"
   }
 ]
